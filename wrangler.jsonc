@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "al-hayat-quran-portal",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-07-06",
+  "compatibility_flags": ["nodejs_compat"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "al_hayat_quran",
+      "database_id": "291cad0c-3449-4388-975a-0bc94bfb5ccc"
+    }
+  ],
+  "vars": {
+    "APP_URL": "https://learn-quran.drimranhayat.com"
+  }
+}

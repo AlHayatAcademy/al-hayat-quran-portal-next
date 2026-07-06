@@ -1,36 +1,101 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Al-Hayat Quran Learning Portal - Next.js Cloudflare Version
 
-## Getting Started
+This is the free-hosting rebuild of the Al-Hayat Quran Learning Portal.
 
-First, run the development server:
+## Stack
+
+- Next.js
+- TypeScript
+- Tailwind CSS
+- Lucide React icons
+- Cloudflare Workers
+- Cloudflare D1 database
+- Cloudflare DNS/domain: `learn-quran.drimranhayat.com`
+
+## Current Features
+
+- Premium academy public homepage
+- Course catalog
+- Teacher application page
+- Login entry page
+- Admin control center
+- Teacher, student, and parent dashboard previews
+- Cloudflare D1 SQL schema for real portal data
+- Cloudflare deployment scripts
+
+## Local Development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```text
+http://localhost:3000
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Useful pages:
 
-## Learn More
+```text
+/
+/login
+/dashboard
+/admin
+/apply
+```
 
-To learn more about Next.js, take a look at the following resources:
+## Cloudflare Setup
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Login to Cloudflare:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```bash
+npx wrangler login
+```
 
-## Deploy on Vercel
+Create the D1 database:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npx wrangler d1 create al_hayat_quran
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Copy the returned `database_id` into `wrangler.jsonc`.
+
+Apply the schema:
+
+```bash
+npx wrangler d1 execute al_hayat_quran --file db/schema.sql
+```
+
+Preview Cloudflare Worker locally:
+
+```bash
+npm run preview
+```
+
+Deploy:
+
+```bash
+npm run deploy
+```
+
+## Cloudflare Domain
+
+After deploy, connect the custom domain:
+
+```text
+learn-quran.drimranhayat.com
+```
+
+In Cloudflare Workers settings, add a custom domain/route for the deployed Worker.
+
+## Next Development Steps
+
+1. Add real authentication with secure password hashing and sessions.
+2. Connect dashboard pages to Cloudflare D1 queries.
+3. Build CRUD screens for courses, teachers, students, parents, classes, attendance, homework, progress, payments, tickets, and announcements.
+4. Add Urdu translations.
+5. Add email notifications.
+6. Add file upload support with Cloudflare R2.
+7. Add production seed data and admin invite flow.
