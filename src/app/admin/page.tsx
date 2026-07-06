@@ -1,14 +1,19 @@
 import { SiteHeader } from "@/components/site-shell";
 import { MetricCard, SectionCard } from "@/components/dashboard-widgets";
-import { BookOpen, CalendarDays, ClipboardList, GraduationCap, Headphones, ShieldCheck, Users } from "lucide-react";
+import { BookOpen, CalendarDays, ClipboardList, GraduationCap, Headphones, ShieldCheck, Users, Video } from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { getAdminData } from "@/lib/academy";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminPage() {
+export default async function AdminPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; error?: string }>;
+}) {
   const user = await requireRole("admin");
   const data = await getAdminData();
+  const params = await searchParams;
   const metrics = [
     { title: "Students", value: String(data.counts.students ?? 0), icon: Users, tone: "bg-emerald-50 text-emerald-700" },
     { title: "Teachers", value: String(data.counts.teachers ?? 0), icon: GraduationCap, tone: "bg-amber-50 text-amber-700" },
@@ -41,6 +46,198 @@ export default async function AdminPage() {
             <MetricCard key={module.title} {...module} />
           ))}
         </div>
+        {params.status || params.error ? (
+          <div
+            className={`mt-6 rounded-2xl border p-4 text-sm font-semibold ${
+              params.error
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            }`}
+          >
+            {params.error
+              ? "Please check the form and try again."
+              : "Saved successfully. The admin data is now updated."}
+          </div>
+        ) : null}
+
+        <div className="mt-8 grid gap-6 xl:grid-cols-3">
+          <SectionCard title="Add / Update Course">
+            <form action="/api/admin/courses" method="post" className="space-y-4">
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Course title</span>
+                <input
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                  name="title"
+                  placeholder="Tajweed"
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Level</span>
+                <input
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                  name="level"
+                  placeholder="Beginner / Intermediate / Advanced"
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Description</span>
+                <textarea
+                  className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 p-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                  name="description"
+                />
+              </label>
+              <select className="h-11 w-full rounded-2xl border border-slate-200 px-4" name="status">
+                <option value="active">Active</option>
+                <option value="inactive">Inactive</option>
+              </select>
+              <button className="h-11 w-full rounded-full bg-emerald-900 text-sm font-bold text-white">
+                Save Course
+              </button>
+            </form>
+          </SectionCard>
+
+          <SectionCard title="Assign Student">
+            <form action="/api/admin/assignments" method="post" className="space-y-4">
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Student</span>
+                <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="studentId" required>
+                  <option value="">Select student</option>
+                  {data.students.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {student.name} {student.parent_name ? `(${student.parent_name})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Teacher</span>
+                <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="teacherId" required>
+                  <option value="">Select teacher</option>
+                  {data.teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Course</span>
+                <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="courseId" required>
+                  <option value="">Select course</option>
+                  {data.courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <button className="h-11 w-full rounded-full bg-emerald-900 text-sm font-bold text-white">
+                Save Assignment
+              </button>
+            </form>
+          </SectionCard>
+
+          <SectionCard title="Schedule Class">
+            <form action="/api/admin/classes" method="post" className="space-y-4">
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Course</span>
+                <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="courseId" required>
+                  <option value="">Select course</option>
+                  {data.courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.title}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Teacher</span>
+                <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="teacherId" required>
+                  <option value="">Select teacher</option>
+                  {data.teachers.map((teacher) => (
+                    <option key={teacher.id} value={teacher.id}>
+                      {teacher.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Student</span>
+                <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="studentId">
+                  <option value="">Group class / no student</option>
+                  {data.students.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {student.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Start time</span>
+                <input
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4"
+                  name="startsAt"
+                  type="datetime-local"
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Meeting link</span>
+                <input
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4"
+                  name="meetingUrl"
+                  placeholder="https://meet.google.com/..."
+                  type="url"
+                />
+              </label>
+              <button className="h-11 w-full rounded-full bg-emerald-900 text-sm font-bold text-white">
+                Create Class
+              </button>
+            </form>
+          </SectionCard>
+        </div>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-2">
+          <SectionCard title="Courses">
+            <div className="space-y-3">
+              {data.courses.slice(0, 8).map((course) => (
+                <div key={course.id} className="rounded-2xl bg-slate-50 p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-slate-950">{course.title}</p>
+                      <p className="text-sm text-slate-600">{course.level ?? "Level not set"}</p>
+                    </div>
+                    <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-bold text-emerald-800">
+                      {course.status}
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {!data.courses.length ? <p className="text-sm text-slate-500">No courses yet.</p> : null}
+            </div>
+          </SectionCard>
+          <SectionCard title="Scheduled Classes">
+            <div className="space-y-3">
+              {data.classSessions.map((item) => (
+                <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-slate-950">{item.course_title}</p>
+                      <p className="text-sm text-slate-600">
+                        {new Date(item.starts_at).toLocaleString()} . {item.teacher_name}
+                        {item.student_name ? ` . ${item.student_name}` : ""}
+                      </p>
+                    </div>
+                    {item.meeting_url ? <Video className="h-5 w-5 text-emerald-700" /> : null}
+                  </div>
+                </div>
+              ))}
+              {!data.classSessions.length ? <p className="text-sm text-slate-500">No classes scheduled yet.</p> : null}
+            </div>
+          </SectionCard>
+        </div>
+
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
           <SectionCard title="Teacher Applications">
             <div className="space-y-3">

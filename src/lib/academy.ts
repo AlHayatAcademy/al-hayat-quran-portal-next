@@ -183,28 +183,104 @@ export async function getAdminData() {
 
   const families = await db
     .prepare(
-      `SELECT student.name AS student_name, parent.name AS parent_name, parent.email AS parent_email,
-              courses.title AS course_title, student_profiles.learning_goal, student_profiles.created_at
+      `SELECT student.id AS student_id, student.name AS student_name,
+              parent.id AS parent_id, parent.name AS parent_name, parent.email AS parent_email,
+              teacher.id AS teacher_id, teacher.name AS teacher_name,
+              courses.id AS course_id, courses.title AS course_title,
+              student_profiles.learning_goal, student_profiles.created_at
        FROM student_profiles
        INNER JOIN users AS student ON student.id = student_profiles.user_id
        LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id
+       LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id
        LEFT JOIN courses ON courses.id = student_profiles.course_id
        ORDER BY student_profiles.created_at DESC
        LIMIT 8`,
     )
     .all<{
+      student_id: string;
       student_name: string;
+      parent_id: string | null;
       parent_name: string | null;
       parent_email: string | null;
+      teacher_id: string | null;
+      teacher_name: string | null;
+      course_id: string | null;
       course_title: string | null;
       learning_goal: string | null;
       created_at: string;
     }>();
+
+  const teachers = await db
+    .prepare(
+      `SELECT id, name, email, status
+       FROM users
+       WHERE role = 'teacher'
+       ORDER BY name ASC`,
+    )
+    .all<{ id: string; name: string; email: string; status: string }>();
+
+  const students = await db
+    .prepare(
+      `SELECT users.id, users.name, users.email, users.status,
+              parent.name AS parent_name,
+              teacher.name AS teacher_name,
+              courses.title AS course_title
+       FROM users
+       LEFT JOIN student_profiles ON student_profiles.user_id = users.id
+       LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id
+       LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id
+       LEFT JOIN courses ON courses.id = student_profiles.course_id
+       WHERE users.role = 'student'
+       ORDER BY users.name ASC`,
+    )
+    .all<{
+      id: string;
+      name: string;
+      email: string;
+      status: string;
+      parent_name: string | null;
+      teacher_name: string | null;
+      course_title: string | null;
+    }>();
+
+  const courses = await db
+    .prepare(
+      `SELECT id, title, description, level, status, created_at
+       FROM courses
+       ORDER BY title ASC`,
+    )
+    .all<{
+      id: string;
+      title: string;
+      description: string | null;
+      level: string | null;
+      status: string;
+      created_at: string;
+    }>();
+
+  const classSessions = await db
+    .prepare(
+      `SELECT class_sessions.id, class_sessions.starts_at, class_sessions.meeting_url, class_sessions.status,
+              courses.title AS course_title,
+              teacher.name AS teacher_name,
+              student.name AS student_name
+       FROM class_sessions
+       INNER JOIN courses ON courses.id = class_sessions.course_id
+       INNER JOIN users AS teacher ON teacher.id = class_sessions.teacher_id
+       LEFT JOIN users AS student ON student.id = class_sessions.student_id
+       ORDER BY class_sessions.starts_at DESC
+       LIMIT 10`,
+    )
+    .all<ClassRow>();
 
   return {
     counts: counts ?? {},
     applications: applications.results ?? [],
     users: users.results ?? [],
     families: families.results ?? [],
+    teachers: teachers.results ?? [],
+    students: students.results ?? [],
+    courses: courses.results ?? [],
+    classSessions: classSessions.results ?? [],
   };
 }
