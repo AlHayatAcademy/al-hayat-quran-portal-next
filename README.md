@@ -17,9 +17,10 @@ This is the free-hosting rebuild of the Al-Hayat Quran Learning Portal.
 - Premium academy public homepage
 - Course catalog
 - Teacher application page
-- Login entry page
-- Admin control center
-- Teacher, student, and parent dashboard previews
+- D1-backed login with secure HTTP-only session cookies
+- One-time first-admin setup protected by `SETUP_TOKEN`
+- Authenticated admin control center
+- Authenticated teacher, student, and parent dashboards
 - Cloudflare D1 SQL schema for real portal data
 - Cloudflare deployment scripts
 
@@ -41,6 +42,7 @@ Useful pages:
 ```text
 /
 /login
+/setup
 /dashboard
 /admin
 /apply
@@ -67,6 +69,26 @@ Apply the schema:
 ```bash
 npx wrangler d1 execute al_hayat_quran --file db/schema.sql
 ```
+
+Apply auth/session migrations:
+
+```bash
+npx wrangler d1 execute al_hayat_quran --file db/migrations/0002_auth_seed.sql --remote
+```
+
+Set the first-admin setup secret:
+
+```bash
+npx wrangler secret put SETUP_TOKEN
+```
+
+Then open:
+
+```text
+https://learn-quran.drimranhayat.com/setup
+```
+
+Use the setup token once to create the first admin account. After an admin exists, `/setup` redirects to `/login`.
 
 Preview Cloudflare Worker locally:
 
