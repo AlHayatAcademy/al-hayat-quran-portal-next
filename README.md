@@ -80,6 +80,36 @@ Deploy:
 npm run deploy
 ```
 
+## GitHub Auto Deployment
+
+The repository includes a GitHub Actions workflow:
+
+```text
+.github/workflows/deploy-cloudflare.yml
+```
+
+It runs automatically on every push to `main`.
+
+To activate it, add this GitHub repository secret:
+
+```text
+CLOUDFLARE_API_TOKEN
+```
+
+Create the token in Cloudflare:
+
+```text
+Cloudflare Dashboard -> My Profile -> API Tokens -> Create Token
+```
+
+Use permissions that allow deploying Workers and reading/editing the required account resources.
+
+Then add it in GitHub:
+
+```text
+GitHub repo -> Settings -> Secrets and variables -> Actions -> New repository secret
+```
+
 ## Cloudflare Domain
 
 After deploy, connect the custom domain:
