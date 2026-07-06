@@ -46,23 +46,59 @@ export default async function AdminPage() {
             <div className="space-y-3">
               {data.applications.length ? data.applications.map((application) => (
                 <div key={application.email} className="rounded-2xl bg-slate-50 p-4">
-                  <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-start justify-between gap-3">
                     <div>
                       <p className="font-bold text-slate-950">{application.name}</p>
                       <p className="text-sm text-slate-600">
                         {application.specialty ?? "Specialty pending"} . {application.experience_years ?? 0} years
                       </p>
+                      <p className="text-xs text-slate-500">{application.email}</p>
                     </div>
                     <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800">
                       {application.status}
                     </span>
                   </div>
+                  {application.status === "pending" ? (
+                    <div className="mt-4 flex gap-2">
+                      <form action="/api/admin/teacher-applications" method="post">
+                        <input type="hidden" name="email" value={application.email} />
+                        <input type="hidden" name="action" value="approve" />
+                        <button className="rounded-full bg-emerald-900 px-4 py-2 text-xs font-bold text-white">
+                          Approve
+                        </button>
+                      </form>
+                      <form action="/api/admin/teacher-applications" method="post">
+                        <input type="hidden" name="email" value={application.email} />
+                        <input type="hidden" name="action" value="reject" />
+                        <button className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-bold text-red-700">
+                          Reject
+                        </button>
+                      </form>
+                    </div>
+                  ) : null}
                 </div>
               )) : <p className="text-sm text-slate-500">No teacher applications yet.</p>}
             </div>
           </SectionCard>
-          <SectionCard title="Recent Users">
+          <SectionCard title="Family Registrations">
             <div className="space-y-3">
+              {data.families.length ? data.families.map((item) => (
+                <div key={`${item.parent_email}-${item.student_name}`} className="rounded-2xl bg-slate-50 p-4">
+                  <p className="font-bold text-slate-950">{item.student_name}</p>
+                  <p className="text-sm text-slate-600">
+                    Parent: {item.parent_name ?? "Unassigned"} . {item.parent_email ?? "No email"}
+                  </p>
+                  <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
+                    {item.course_title ?? "Course pending"}
+                  </p>
+                </div>
+              )) : <p className="text-sm text-slate-500">No family registrations yet.</p>}
+            </div>
+          </SectionCard>
+        </div>
+        <div className="mt-8">
+          <SectionCard title="Recent Users">
+            <div className="grid gap-3 md:grid-cols-2">
               {data.users.map((item) => (
                 <div key={item.email} className="rounded-2xl bg-slate-50 p-4">
                   <p className="font-bold text-slate-950">{item.name}</p>

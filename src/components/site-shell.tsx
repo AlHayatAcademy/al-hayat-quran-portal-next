@@ -17,6 +17,7 @@ export function SiteHeader() {
         <nav className="hidden items-center gap-7 text-sm font-semibold text-slate-700 md:flex">
           <Link href="/#courses">Courses</Link>
           <Link href="/#roles">Portals</Link>
+          <Link href="/register">Register</Link>
           <Link href="/apply">Teacher Apply</Link>
           <Link href="/admin">Admin</Link>
         </nav>

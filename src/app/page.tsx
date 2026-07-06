@@ -21,16 +21,22 @@ export default function Home() {
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/login"
+              href="/register"
               className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-emerald-900 px-6 text-sm font-bold text-white shadow-sm hover:bg-emerald-800"
             >
-              Open Portal <ArrowRight className="h-4 w-4" />
+              Register Student <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
               href="/apply"
               className="inline-flex h-12 items-center justify-center rounded-full border border-emerald-900/20 bg-white px-6 text-sm font-bold text-emerald-950"
             >
               Apply as Teacher
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex h-12 items-center justify-center rounded-full border border-emerald-900/20 bg-white px-6 text-sm font-bold text-emerald-950"
+            >
+              Portal Login
             </Link>
           </div>
         </div>

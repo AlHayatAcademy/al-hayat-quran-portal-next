@@ -181,9 +181,30 @@ export async function getAdminData() {
     )
     .all<{ name: string; email: string; role: string; status: string; created_at: string }>();
 
+  const families = await db
+    .prepare(
+      `SELECT student.name AS student_name, parent.name AS parent_name, parent.email AS parent_email,
+              courses.title AS course_title, student_profiles.learning_goal, student_profiles.created_at
+       FROM student_profiles
+       INNER JOIN users AS student ON student.id = student_profiles.user_id
+       LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id
+       LEFT JOIN courses ON courses.id = student_profiles.course_id
+       ORDER BY student_profiles.created_at DESC
+       LIMIT 8`,
+    )
+    .all<{
+      student_name: string;
+      parent_name: string | null;
+      parent_email: string | null;
+      course_title: string | null;
+      learning_goal: string | null;
+      created_at: string;
+    }>();
+
   return {
     counts: counts ?? {},
     applications: applications.results ?? [],
     users: users.results ?? [],
+    families: families.results ?? [],
   };
 }
