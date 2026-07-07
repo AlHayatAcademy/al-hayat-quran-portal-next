@@ -17,7 +17,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin?error=class", request.url));
   }
 
-  const startsAtIso = new Date(startsAt).toISOString();
+  const startsAtDate = new Date(startsAt);
+  if (Number.isNaN(startsAtDate.getTime())) {
+    return NextResponse.redirect(new URL("/admin?error=class", request.url));
+  }
+
+  const startsAtIso = startsAtDate.toISOString();
   const db = await getDb();
 
   await db

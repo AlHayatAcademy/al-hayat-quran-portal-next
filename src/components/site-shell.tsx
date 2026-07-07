@@ -19,6 +19,7 @@ export function SiteHeader() {
           <Link href="/#roles">Portals</Link>
           <Link href="/register">Register</Link>
           <Link href="/apply">Teacher Apply</Link>
+          <Link href="/privacy">Privacy</Link>
           <Link href="/admin">Admin</Link>
         </nav>
         <div className="flex items-center gap-2">
@@ -44,7 +45,11 @@ export function SiteFooter() {
     <footer className="border-t border-emerald-950/10 bg-white">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-8 text-sm text-slate-600 sm:px-6 md:flex-row md:items-center md:justify-between lg:px-8">
         <p>Al-Hayat Quran Learning Portal. Built for Cloudflare deployment.</p>
-        <p>learn-quran.drimranhayat.com</p>
+        <div className="flex flex-wrap gap-4">
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/terms">Terms</Link>
+          <span>learn-quran.drimranhayat.com</span>
+        </div>
       </div>
     </footer>
   );

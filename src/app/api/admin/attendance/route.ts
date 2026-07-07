@@ -16,13 +16,25 @@ export async function POST(request: NextRequest) {
   }
 
   const db = await getDb();
-  await db
-    .prepare(
-      `INSERT INTO attendance_records (id, class_session_id, student_id, status, notes, marked_by)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-    )
-    .bind(crypto.randomUUID(), classSessionId, studentId, status, notes || null, user.id)
-    .run();
+  const existingRecord = await db
+    .prepare("SELECT id FROM attendance_records WHERE class_session_id = ? AND student_id = ? LIMIT 1")
+    .bind(classSessionId, studentId)
+    .first<{ id: string }>();
+
+  if (existingRecord) {
+    await db
+      .prepare("UPDATE attendance_records SET status = ?, notes = ?, marked_by = ? WHERE id = ?")
+      .bind(status, notes || null, user.id, existingRecord.id)
+      .run();
+  } else {
+    await db
+      .prepare(
+        `INSERT INTO attendance_records (id, class_session_id, student_id, status, notes, marked_by)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(crypto.randomUUID(), classSessionId, studentId, status, notes || null, user.id)
+      .run();
+  }
 
   await db.prepare("UPDATE class_sessions SET status = 'completed' WHERE id = ?").bind(classSessionId).run();
 

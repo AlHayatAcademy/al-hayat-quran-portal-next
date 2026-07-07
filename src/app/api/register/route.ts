@@ -32,41 +32,35 @@ export async function POST(request: NextRequest) {
   const studentId = crypto.randomUUID();
   const courseId = `course_${slugify(courseTitle)}`;
   const studentEmail = `${studentId}@student.alhayat.local`;
+  const parentPasswordHash = await hashPassword(password);
+  const studentPasswordHash = await hashPassword(crypto.randomUUID());
+  const learningGoalNotes = [learningGoal, phone ? `Phone: ${phone}` : "", studentAge ? `Age: ${studentAge}` : ""]
+    .filter(Boolean)
+    .join("\n");
 
-  await db
-    .prepare("INSERT OR IGNORE INTO courses (id, title, description, level, status) VALUES (?, ?, ?, ?, 'active')")
-    .bind(courseId, courseTitle, `${courseTitle} enrollment course.`, "Enrollment")
-    .run();
-
-  await db
-    .prepare(
-      `INSERT INTO users (id, name, email, password_hash, role, status, locale)
-       VALUES (?, ?, ?, ?, 'parent', 'active', 'en')`,
-    )
-    .bind(parentId, parentName, parentEmail, await hashPassword(password))
-    .run();
-
-  await db
-    .prepare(
-      `INSERT INTO users (id, name, email, password_hash, role, status, locale)
-       VALUES (?, ?, ?, ?, 'student', 'active', 'en')`,
-    )
-    .bind(studentId, studentName, studentEmail, await hashPassword(crypto.randomUUID()))
-    .run();
-
-  await db
-    .prepare(
-      `INSERT INTO student_profiles (id, user_id, parent_id, course_id, learning_goal)
-       VALUES (?, ?, ?, ?, ?)`,
-    )
-    .bind(
-      crypto.randomUUID(),
-      studentId,
-      parentId,
-      courseId,
-      [learningGoal, phone ? `Phone: ${phone}` : "", studentAge ? `Age: ${studentAge}` : ""].filter(Boolean).join("\n"),
-    )
-    .run();
+  await db.batch([
+    db
+      .prepare("INSERT OR IGNORE INTO courses (id, title, description, level, status) VALUES (?, ?, ?, ?, 'active')")
+      .bind(courseId, courseTitle, `${courseTitle} enrollment course.`, "Enrollment"),
+    db
+      .prepare(
+        `INSERT INTO users (id, name, email, password_hash, role, status, locale)
+         VALUES (?, ?, ?, ?, 'parent', 'active', 'en')`,
+      )
+      .bind(parentId, parentName, parentEmail, parentPasswordHash),
+    db
+      .prepare(
+        `INSERT INTO users (id, name, email, password_hash, role, status, locale)
+         VALUES (?, ?, ?, ?, 'student', 'active', 'en')`,
+      )
+      .bind(studentId, studentName, studentEmail, studentPasswordHash),
+    db
+      .prepare(
+        `INSERT INTO student_profiles (id, user_id, parent_id, course_id, learning_goal)
+         VALUES (?, ?, ?, ?, ?)`,
+      )
+      .bind(crypto.randomUUID(), studentId, parentId, courseId, learningGoalNotes),
+  ]);
 
   return NextResponse.redirect(new URL("/register?status=registered", request.url));
 }

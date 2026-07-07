@@ -37,7 +37,12 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const dueAtIso = dueAt ? new Date(dueAt).toISOString() : null;
+  const dueAtDate = dueAt ? new Date(dueAt) : null;
+  if (dueAtDate && Number.isNaN(dueAtDate.getTime())) {
+    return NextResponse.redirect(new URL("/dashboard?error=homework", request.url));
+  }
+
+  const dueAtIso = dueAtDate ? dueAtDate.toISOString() : null;
 
   await db
     .prepare(
