@@ -39,9 +39,20 @@ export type AttendanceRow = {
   status: string;
   notes: string | null;
   created_at: string;
+  starts_at?: string;
   class_title: string;
   student_name: string;
   marked_by_name: string | null;
+};
+
+export type ChildProfileRow = {
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  teacher_name: string | null;
+  teacher_email: string | null;
+  course_title: string | null;
+  learning_goal: string | null;
 };
 
 export type TeacherStudentRow = {
@@ -105,9 +116,12 @@ export async function getDashboardData(user: AuthUser) {
   const homework = await db
     .prepare(
       `SELECT homework_items.id, homework_items.title, homework_items.instructions,
-              homework_items.due_at, homework_items.status, users.name AS student_name
+              homework_items.due_at, homework_items.status,
+              teacher.name AS teacher_name,
+              student.name AS student_name
        FROM homework_items
-       INNER JOIN users ON users.id = homework_items.student_id
+       INNER JOIN users AS teacher ON teacher.id = homework_items.teacher_id
+       INNER JOIN users AS student ON student.id = homework_items.student_id
        LEFT JOIN student_profiles ON student_profiles.user_id = homework_items.student_id
        ${homeworkQuery}
        ORDER BY homework_items.due_at ASC
@@ -128,9 +142,13 @@ export async function getDashboardData(user: AuthUser) {
   const progress = await db
     .prepare(
       `SELECT lesson_progress.id, lesson_progress.milestone, lesson_progress.completion_percent,
-              lesson_progress.notes, courses.title AS course_title
+              lesson_progress.notes, courses.title AS course_title,
+              teacher.name AS teacher_name,
+              student.name AS student_name
        FROM lesson_progress
        INNER JOIN courses ON courses.id = lesson_progress.course_id
+       INNER JOIN users AS teacher ON teacher.id = lesson_progress.teacher_id
+       INNER JOIN users AS student ON student.id = lesson_progress.student_id
        LEFT JOIN student_profiles ON student_profiles.user_id = lesson_progress.student_id
        ${progressQuery}
        ORDER BY lesson_progress.created_at DESC
@@ -183,6 +201,56 @@ export async function getDashboardData(user: AuthUser) {
           .all<TeacherStudentRow>()
       : { results: [] as TeacherStudentRow[] };
 
+  const attendanceQuery =
+    user.role === "student"
+      ? "WHERE attendance_records.student_id = ?"
+      : user.role === "teacher"
+        ? "WHERE class_sessions.teacher_id = ?"
+        : user.role === "parent"
+          ? "WHERE student_profiles.parent_id = ?"
+          : "";
+
+  const attendance = attendanceQuery
+    ? await db
+        .prepare(
+          `SELECT attendance_records.id, attendance_records.status, attendance_records.notes,
+                  attendance_records.created_at, class_sessions.starts_at,
+                  courses.title || ' - ' || class_sessions.starts_at AS class_title,
+                  student.name AS student_name,
+                  marker.name AS marked_by_name
+           FROM attendance_records
+           INNER JOIN class_sessions ON class_sessions.id = attendance_records.class_session_id
+           INNER JOIN courses ON courses.id = class_sessions.course_id
+           INNER JOIN users AS student ON student.id = attendance_records.student_id
+           LEFT JOIN users AS marker ON marker.id = attendance_records.marked_by
+           LEFT JOIN student_profiles ON student_profiles.user_id = attendance_records.student_id
+           ${attendanceQuery}
+           ORDER BY attendance_records.created_at DESC
+           LIMIT 8`,
+        )
+        .bind(user.id)
+        .all<AttendanceRow>()
+    : { results: [] as AttendanceRow[] };
+
+  const childProfiles =
+    user.role === "parent"
+      ? await db
+          .prepare(
+            `SELECT student.id AS student_id, student.name AS student_name, student.email AS student_email,
+                    teacher.name AS teacher_name, teacher.email AS teacher_email,
+                    courses.title AS course_title,
+                    student_profiles.learning_goal
+             FROM student_profiles
+             INNER JOIN users AS student ON student.id = student_profiles.user_id
+             LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id
+             LEFT JOIN courses ON courses.id = student_profiles.course_id
+             WHERE student_profiles.parent_id = ?
+             ORDER BY student.name ASC`,
+          )
+          .bind(user.id)
+          .all<ChildProfileRow>()
+      : { results: [] as ChildProfileRow[] };
+
   return {
     classes: classes.results ?? [],
     homework: homework.results ?? [],
@@ -190,6 +258,8 @@ export async function getDashboardData(user: AuthUser) {
     payments: payments.results ?? [],
     announcements: announcements.results ?? [],
     teacherStudents: teacherStudents.results ?? [],
+    attendance: attendance.results ?? [],
+    childProfiles: childProfiles.results ?? [],
   };
 }
 

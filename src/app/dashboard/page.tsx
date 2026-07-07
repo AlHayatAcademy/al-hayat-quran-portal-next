@@ -1,11 +1,34 @@
 import Link from "next/link";
-import { CalendarDays, ChartBar, ClipboardList, CreditCard, Users, Video } from "lucide-react";
+import {
+  CalendarDays,
+  ChartBar,
+  CheckCircle2,
+  ClipboardList,
+  CreditCard,
+  GraduationCap,
+  TrendingUp,
+  Users,
+  Video,
+} from "lucide-react";
 import { SiteHeader } from "@/components/site-shell";
 import { MetricCard, SectionCard } from "@/components/dashboard-widgets";
 import { requireUser } from "@/lib/auth";
 import { getDashboardData } from "@/lib/academy";
 
 export const dynamic = "force-dynamic";
+
+const formatDateTime = (value: string) =>
+  new Date(value).toLocaleString("en-US", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+
+const formatDate = (value: string) =>
+  new Date(value).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
 
 export default async function DashboardPage({
   searchParams,
@@ -15,13 +38,39 @@ export default async function DashboardPage({
   const user = await requireUser();
   const data = await getDashboardData(user);
   const params = await searchParams;
-  const metrics = [
-    { title: "Role", value: user.role, icon: Users, tone: "bg-emerald-50 text-emerald-700" },
-    { title: "Classes", value: String(data.classes.length), icon: CalendarDays, tone: "bg-amber-50 text-amber-700" },
-    { title: "Homework", value: String(data.homework.length), icon: ClipboardList, tone: "bg-orange-50 text-orange-700" },
-    { title: "Progress Items", value: String(data.progress.length), icon: ChartBar, tone: "bg-cyan-50 text-cyan-700" },
-    { title: "Payments", value: String(data.payments.length), icon: CreditCard, tone: "bg-rose-50 text-rose-700" },
-  ];
+  const headline =
+    user.role === "student"
+      ? "Your Quran learning plan"
+      : user.role === "parent"
+        ? "Your child learning overview"
+        : user.role === "teacher"
+          ? "Teaching workspace"
+          : "Academy overview";
+  const intro =
+    user.role === "student"
+      ? "See your next classes, homework, attendance, and lesson progress in one calm place."
+      : user.role === "parent"
+        ? "Track your child classes, homework, attendance, progress, and teacher details from one screen."
+        : user.role === "teacher"
+          ? "Manage assigned students, class attendance, homework, and lesson progress."
+          : "View your live academy activity from Cloudflare D1.";
+  const metrics =
+    user.role === "parent"
+      ? [
+          { title: "Children", value: String(data.childProfiles.length), icon: Users, tone: "bg-emerald-50 text-emerald-700" },
+          { title: "Classes", value: String(data.classes.length), icon: CalendarDays, tone: "bg-amber-50 text-amber-700" },
+          { title: "Homework", value: String(data.homework.length), icon: ClipboardList, tone: "bg-orange-50 text-orange-700" },
+          { title: "Attendance", value: String(data.attendance.length), icon: CheckCircle2, tone: "bg-lime-50 text-lime-700" },
+          { title: "Progress", value: String(data.progress.length), icon: TrendingUp, tone: "bg-cyan-50 text-cyan-700" },
+          { title: "Payments", value: String(data.payments.length), icon: CreditCard, tone: "bg-rose-50 text-rose-700" },
+        ]
+      : [
+          { title: "Role", value: user.role, icon: Users, tone: "bg-emerald-50 text-emerald-700" },
+          { title: "Classes", value: String(data.classes.length), icon: CalendarDays, tone: "bg-amber-50 text-amber-700" },
+          { title: "Homework", value: String(data.homework.length), icon: ClipboardList, tone: "bg-orange-50 text-orange-700" },
+          { title: "Progress", value: String(data.progress.length), icon: ChartBar, tone: "bg-cyan-50 text-cyan-700" },
+          { title: "Attendance", value: String(data.attendance.length), icon: CheckCircle2, tone: "bg-lime-50 text-lime-700" },
+        ];
 
   return (
     <main className="min-h-screen bg-slate-50">
@@ -29,11 +78,8 @@ export default async function DashboardPage({
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="rounded-[2rem] bg-emerald-950 p-8 text-white shadow-xl">
           <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-300">{user.role} dashboard</p>
-          <h1 className="mt-3 text-4xl font-black">Welcome, {user.name}</h1>
-          <p className="mt-3 max-w-3xl text-white/75">
-            This workspace is reading your role, classes, homework, progress, payments, and announcements from
-            Cloudflare D1.
-          </p>
+          <h1 className="mt-3 text-4xl font-black">{headline}</h1>
+          <p className="mt-3 max-w-3xl text-white/75">Welcome, {user.name}. {intro}</p>
           <form action="/api/auth/logout" method="post" className="mt-5">
             <button className="rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-950">Logout</button>
           </form>
@@ -213,68 +259,249 @@ export default async function DashboardPage({
           </div>
         ) : null}
 
-        <div className="mt-8 grid gap-6 lg:grid-cols-2">
-          <SectionCard title="Classes">
-            <div className="space-y-3">
-              {data.classes.length ? data.classes.map((item) => (
-                <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
-                  <p className="font-bold text-slate-950">{item.course_title}</p>
-                  <p className="text-sm text-slate-600">
-                    {new Date(item.starts_at).toLocaleString()} . {item.teacher_name}
-                    {item.student_name ? ` . ${item.student_name}` : ""}
-                  </p>
-                  {item.meeting_url ? (
-                    <Link
-                      href={item.meeting_url}
-                      className="mt-4 inline-flex h-10 items-center gap-2 rounded-full bg-emerald-900 px-4 text-sm font-bold text-white"
-                    >
-                      <Video className="h-4 w-4" /> Join Class
-                    </Link>
+        {user.role === "student" ? (
+          <div className="mt-8 grid gap-6 xl:grid-cols-3">
+            <SectionCard title="Next Classes">
+              <div className="space-y-3">
+                {data.classes.length ? data.classes.map((item) => (
+                  <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                    <p className="font-bold text-slate-950">{item.course_title}</p>
+                    <p className="text-sm text-slate-600">{formatDateTime(item.starts_at)} . {item.teacher_name}</p>
+                    {item.meeting_url ? (
+                      <Link
+                        href={item.meeting_url}
+                        className="mt-4 inline-flex h-10 items-center gap-2 rounded-full bg-emerald-900 px-4 text-sm font-bold text-white"
+                      >
+                        <Video className="h-4 w-4" /> Join Class
+                      </Link>
+                    ) : null}
+                  </div>
+                )) : <p className="text-sm text-slate-500">No classes assigned yet.</p>}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Homework">
+              <div className="space-y-3">
+                {data.homework.length ? data.homework.map((item) => (
+                  <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                    <p className="font-bold text-slate-950">{item.title}</p>
+                    {item.instructions ? <p className="mt-2 text-sm text-slate-600">{item.instructions}</p> : null}
+                    <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
+                      {item.status}{item.due_at ? ` . Due ${formatDate(item.due_at)}` : ""}
+                    </p>
+                  </div>
+                )) : <p className="text-sm text-slate-500">No homework assigned yet.</p>}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Progress Report">
+              <div className="space-y-3">
+                {data.progress.length ? data.progress.map((item) => (
+                  <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-bold text-slate-950">{item.milestone}</p>
+                        <p className="text-sm text-slate-600">{item.course_title}</p>
+                      </div>
+                      <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-bold text-cyan-800">
+                        {item.completion_percent}%
+                      </span>
+                    </div>
+                    {item.notes ? <p className="mt-3 text-sm text-slate-600">{item.notes}</p> : null}
+                  </div>
+                )) : <p className="text-sm text-slate-500">No lesson progress yet.</p>}
+              </div>
+            </SectionCard>
+          </div>
+        ) : null}
+
+        {user.role === "parent" ? (
+          <div className="mt-8 grid gap-6 xl:grid-cols-3">
+            <SectionCard title="Child Profile">
+              <div className="space-y-3">
+                {data.childProfiles.length ? data.childProfiles.map((child) => (
+                  <div key={child.student_id} className="rounded-2xl bg-slate-50 p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="rounded-xl bg-emerald-100 p-2 text-emerald-800">
+                        <GraduationCap className="h-5 w-5" />
+                      </span>
+                      <div>
+                        <p className="font-bold text-slate-950">{child.student_name}</p>
+                        <p className="text-sm text-slate-600">{child.course_title ?? "Course pending"}</p>
+                      </div>
+                    </div>
+                    {child.learning_goal ? <p className="mt-3 text-sm text-slate-600">{child.learning_goal}</p> : null}
+                    <div className="mt-4 rounded-xl bg-white p-3 text-sm text-slate-600">
+                      <p className="font-bold text-slate-950">{child.teacher_name ?? "Teacher pending"}</p>
+                      <p>{child.teacher_email ?? "Teacher contact pending"}</p>
+                    </div>
+                  </div>
+                )) : <p className="text-sm text-slate-500">No child profile found yet.</p>}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Upcoming Classes">
+              <div className="space-y-3">
+                {data.classes.length ? data.classes.map((item) => (
+                  <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                    <p className="font-bold text-slate-950">{item.course_title}</p>
+                    <p className="text-sm text-slate-600">
+                      {formatDateTime(item.starts_at)} . {item.student_name} . {item.teacher_name}
+                    </p>
+                    {item.meeting_url ? (
+                      <Link
+                        href={item.meeting_url}
+                        className="mt-4 inline-flex h-10 items-center gap-2 rounded-full bg-emerald-900 px-4 text-sm font-bold text-white"
+                      >
+                        <Video className="h-4 w-4" /> Join Class
+                      </Link>
+                    ) : null}
+                  </div>
+                )) : <p className="text-sm text-slate-500">No classes scheduled yet.</p>}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Homework Status">
+              <div className="space-y-3">
+                {data.homework.length ? data.homework.map((item) => (
+                  <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                    <p className="font-bold text-slate-950">{item.title}</p>
+                    <p className="text-sm text-slate-600">
+                      {item.student_name} . {item.teacher_name ?? "Teacher"}
+                    </p>
+                    <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
+                      {item.status}{item.due_at ? ` . Due ${formatDate(item.due_at)}` : ""}
+                    </p>
+                  </div>
+                )) : <p className="text-sm text-slate-500">No homework assigned yet.</p>}
+              </div>
+            </SectionCard>
+          </div>
+        ) : null}
+
+        {user.role === "student" || user.role === "parent" ? (
+          <div className="mt-8 grid gap-6 lg:grid-cols-2">
+            <SectionCard title="Attendance History">
+              <div className="space-y-3">
+                {data.attendance.length ? data.attendance.map((item) => (
+                  <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="font-bold text-slate-950">{item.student_name}</p>
+                        <p className="text-sm text-slate-600">
+                          {item.starts_at ? formatDateTime(item.starts_at) : item.class_title}
+                        </p>
+                      </div>
+                      <span className="rounded-full bg-lime-100 px-3 py-1 text-xs font-bold uppercase text-lime-800">
+                        {item.status}
+                      </span>
+                    </div>
+                    {item.notes ? <p className="mt-3 text-sm text-slate-600">{item.notes}</p> : null}
+                  </div>
+                )) : <p className="text-sm text-slate-500">No attendance marked yet.</p>}
+              </div>
+            </SectionCard>
+
+            <SectionCard title={user.role === "parent" ? "Lesson Progress" : "Announcements"}>
+              {user.role === "parent" ? (
+                <div className="space-y-3">
+                  {data.progress.length ? data.progress.map((item) => (
+                    <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-bold text-slate-950">{item.milestone}</p>
+                          <p className="text-sm text-slate-600">
+                            {item.student_name} . {item.course_title} . {item.teacher_name ?? "Teacher"}
+                          </p>
+                        </div>
+                        <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-bold text-cyan-800">
+                          {item.completion_percent}%
+                        </span>
+                      </div>
+                      {item.notes ? <p className="mt-3 text-sm text-slate-600">{item.notes}</p> : null}
+                    </div>
+                  )) : <p className="text-sm text-slate-500">No lesson progress yet.</p>}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {data.announcements.length ? data.announcements.map((item) => (
+                    <div key={item.title} className="rounded-2xl bg-slate-50 p-4">
+                      <p className="font-bold text-slate-950">{item.title}</p>
+                      <p className="text-sm text-slate-600">{item.body}</p>
+                    </div>
+                  )) : <p className="text-sm text-slate-500">No announcements yet.</p>}
+                </div>
+              )}
+            </SectionCard>
+          </div>
+        ) : null}
+
+        {user.role !== "student" && user.role !== "parent" ? (
+          <>
+            <div className="mt-8 grid gap-6 lg:grid-cols-2">
+              <SectionCard title="Classes">
+                <div className="space-y-3">
+                  {data.classes.length ? data.classes.map((item) => (
+                    <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                      <p className="font-bold text-slate-950">{item.course_title}</p>
+                      <p className="text-sm text-slate-600">
+                        {formatDateTime(item.starts_at)} . {item.teacher_name}
+                        {item.student_name ? ` . ${item.student_name}` : ""}
+                      </p>
+                      {item.meeting_url ? (
+                        <Link
+                          href={item.meeting_url}
+                          className="mt-4 inline-flex h-10 items-center gap-2 rounded-full bg-emerald-900 px-4 text-sm font-bold text-white"
+                        >
+                          <Video className="h-4 w-4" /> Join Class
+                        </Link>
+                      ) : null}
+                    </div>
+                  )) : <p className="text-sm text-slate-500">No classes assigned yet.</p>}
+                </div>
+              </SectionCard>
+
+              <SectionCard title="Announcements">
+                <div className="space-y-3">
+                  {data.announcements.length ? data.announcements.map((item) => (
+                    <div key={item.title} className="rounded-2xl bg-slate-50 p-4">
+                      <p className="font-bold text-slate-950">{item.title}</p>
+                      <p className="text-sm text-slate-600">{item.body}</p>
+                    </div>
+                  )) : <p className="text-sm text-slate-500">No announcements yet.</p>}
+                </div>
+              </SectionCard>
+            </div>
+
+            <div className="mt-8">
+              <SectionCard title="Homework and Lesson Progress">
+                <div className="grid gap-3 md:grid-cols-3">
+                  {data.homework.map((item) => (
+                    <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                      <p className="font-bold text-slate-950">{item.title}</p>
+                      <p className="mt-2 text-sm text-slate-600">
+                        {item.student_name} {item.due_at ? `. Due: ${formatDate(item.due_at)}` : ""}
+                      </p>
+                      <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">{item.status}</p>
+                    </div>
+                  ))}
+                  {data.progress.map((item) => (
+                    <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                      <p className="font-bold text-slate-950">{item.milestone}</p>
+                      <p className="mt-2 text-sm text-slate-600">{item.course_title}</p>
+                      <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
+                        {item.completion_percent}% complete
+                      </p>
+                    </div>
+                  ))}
+                  {!data.homework.length && !data.progress.length ? (
+                    <p className="text-sm text-slate-500">No homework or progress records yet.</p>
                   ) : null}
                 </div>
-              )) : <p className="text-sm text-slate-500">No classes assigned yet.</p>}
+              </SectionCard>
             </div>
-          </SectionCard>
-
-          <SectionCard title="Announcements">
-            <div className="space-y-3">
-              {data.announcements.length ? data.announcements.map((item) => (
-                <div key={item.title} className="rounded-2xl bg-slate-50 p-4">
-                  <p className="font-bold text-slate-950">{item.title}</p>
-                  <p className="text-sm text-slate-600">{item.body}</p>
-                </div>
-              )) : <p className="text-sm text-slate-500">No announcements yet.</p>}
-            </div>
-          </SectionCard>
-        </div>
-
-        <div className="mt-8">
-          <SectionCard title="Homework and Lesson Progress">
-            <div className="grid gap-3 md:grid-cols-3">
-              {data.homework.map((item) => (
-                <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
-                  <p className="font-bold text-slate-950">{item.title}</p>
-                  <p className="mt-2 text-sm text-slate-600">
-                    {item.student_name} {item.due_at ? `. Due: ${new Date(item.due_at).toLocaleDateString()}` : ""}
-                  </p>
-                  <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">{item.status}</p>
-                </div>
-              ))}
-              {data.progress.map((item) => (
-                <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
-                  <p className="font-bold text-slate-950">{item.milestone}</p>
-                  <p className="mt-2 text-sm text-slate-600">{item.course_title}</p>
-                  <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
-                    {item.completion_percent}% complete
-                  </p>
-                </div>
-              ))}
-              {!data.homework.length && !data.progress.length ? (
-                <p className="text-sm text-slate-500">No homework or progress records yet.</p>
-              ) : null}
-            </div>
-          </SectionCard>
-        </div>
+          </>
+        ) : null}
       </div>
     </main>
   );
