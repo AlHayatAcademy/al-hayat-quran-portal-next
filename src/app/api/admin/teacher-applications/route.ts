@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword, requireRole } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { createPasswordSetupInvite } from "@/lib/invitations";
 
 export async function POST(request: NextRequest) {
-  await requireRole("admin");
+  const admin = await requireRole("admin");
 
   const formData = await request.formData();
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
@@ -28,18 +29,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.redirect(new URL("/admin?status=rejected", request.url));
   }
 
-  const existingUser = await db.prepare("SELECT id FROM users WHERE lower(email) = ? LIMIT 1").bind(email).first();
+  const existingUser = await db
+    .prepare("SELECT id FROM users WHERE lower(email) = ? LIMIT 1")
+    .bind(email)
+    .first<{ id: string }>();
+  let teacherId = existingUser?.id;
 
-  if (!existingUser) {
+  if (!teacherId) {
+    teacherId = crypto.randomUUID();
     await db
       .prepare(
         `INSERT INTO users (id, name, email, password_hash, role, status, locale)
          VALUES (?, ?, ?, ?, 'teacher', 'active', 'en')`,
       )
-      .bind(crypto.randomUUID(), application.name, application.email, await hashPassword(crypto.randomUUID()))
+      .bind(teacherId, application.name, application.email, await hashPassword(crypto.randomUUID()))
       .run();
   }
 
+  const invite = await createPasswordSetupInvite(teacherId, admin.id);
+  const redirectUrl = new URL("/admin", request.url);
+  redirectUrl.searchParams.set("status", "approved");
+  redirectUrl.searchParams.set("invite", invite.token);
+  redirectUrl.searchParams.set("email", application.email);
+
   await db.prepare("UPDATE teacher_applications SET status = 'approved' WHERE lower(email) = ?").bind(email).run();
-  return NextResponse.redirect(new URL("/admin?status=approved", request.url));
+  return NextResponse.redirect(redirectUrl);
 }

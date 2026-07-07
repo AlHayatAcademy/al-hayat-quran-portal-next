@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; error?: string }>;
+  searchParams: Promise<{ status?: string; error?: string; invite?: string; email?: string }>;
 }) {
   const user = await requireRole("admin");
   const data = await getAdminData();
@@ -70,6 +70,15 @@ export default async function AdminPage({
             {params.error
               ? "Please check the form and try again."
               : "Saved successfully. The admin data is now updated."}
+          </div>
+        ) : null}
+
+        {params.invite ? (
+          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
+            <p>Password setup link created{params.email ? ` for ${params.email}` : ""}.</p>
+            <p className="mt-2 break-all rounded-xl bg-white p-3 font-mono text-xs text-slate-700">
+              https://learn-quran.drimranhayat.com/invite?token={params.invite}
+            </p>
           </div>
         ) : null}
 
@@ -552,8 +561,26 @@ export default async function AdminPage({
           </SectionCard>
         </div>
         <div className="mt-8">
-          <SectionCard title="Reset User Password">
-            <form action="/api/admin/password-reset" method="post" className="grid gap-4 lg:grid-cols-4">
+          <SectionCard title="User Access">
+            <form action="/api/admin/invitations" method="post" className="grid gap-4 lg:grid-cols-4">
+              <label className="block lg:col-span-2">
+                <span className="text-sm font-bold text-slate-700">User</span>
+                <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="userId" required>
+                  <option value="">Select user</option>
+                  {data.resetUsers.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} - {item.role} - {item.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="flex items-end">
+                <button className="h-11 w-full rounded-full bg-amber-500 text-sm font-bold text-emerald-950">
+                  Create Setup Link
+                </button>
+              </div>
+            </form>
+            <form action="/api/admin/password-reset" method="post" className="mt-6 grid gap-4 border-t border-slate-200 pt-6 lg:grid-cols-4">
               <label className="block lg:col-span-2">
                 <span className="text-sm font-bold text-slate-700">User</span>
                 <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="userId" required>
