@@ -66,6 +66,51 @@ export type TeacherStudentRow = {
   learning_goal: string | null;
 };
 
+export type InvitationStatus = "none" | "sent" | "used" | "expired";
+
+export type OnboardingUserRow = {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  status: string;
+  created_at: string;
+  invite_created_at: string | null;
+  invite_expires_at: string | null;
+  invite_used_at: string | null;
+  active_sessions: number;
+  invitation_status: InvitationStatus;
+};
+
+export type OnboardingStudentRow = OnboardingUserRow & {
+  parent_id: string | null;
+  parent_name: string | null;
+  parent_email: string | null;
+  teacher_id: string | null;
+  teacher_name: string | null;
+  teacher_email: string | null;
+  course_id: string | null;
+  course_title: string | null;
+  learning_goal: string | null;
+  scheduled_classes: number;
+};
+
+export type OnboardingApplicationRow = {
+  id: string;
+  name: string;
+  email: string;
+  specialty: string | null;
+  experience_years: number | null;
+  status: string;
+  created_at: string;
+  teacher_user_id: string | null;
+  teacher_user_status: string | null;
+  invite_created_at: string | null;
+  invite_expires_at: string | null;
+  invite_used_at: string | null;
+  invitation_status: InvitationStatus;
+};
+
 export type PaymentRow = {
   id: string;
   amount_cents: number;
@@ -266,6 +311,7 @@ export async function getDashboardData(user: AuthUser) {
 
 export async function getAdminData() {
   const db = await getDb();
+  const now = new Date().toISOString();
 
   const counts = await db
     .prepare(
@@ -449,6 +495,159 @@ export async function getAdminData() {
     )
     .all<ProgressRow>();
 
+  const onboardingApplications = await db
+    .prepare(
+      `SELECT teacher_applications.id, teacher_applications.name, teacher_applications.email,
+              teacher_applications.specialty, teacher_applications.experience_years,
+              teacher_applications.status, teacher_applications.created_at,
+              users.id AS teacher_user_id, users.status AS teacher_user_status,
+              invitation_tokens.created_at AS invite_created_at,
+              invitation_tokens.expires_at AS invite_expires_at,
+              invitation_tokens.used_at AS invite_used_at,
+              CASE
+                WHEN invitation_tokens.id IS NULL THEN 'none'
+                WHEN invitation_tokens.used_at IS NOT NULL THEN 'used'
+                WHEN invitation_tokens.expires_at <= ? THEN 'expired'
+                ELSE 'sent'
+              END AS invitation_status
+       FROM teacher_applications
+       LEFT JOIN users ON lower(users.email) = lower(teacher_applications.email) AND users.role = 'teacher'
+       LEFT JOIN invitation_tokens ON invitation_tokens.user_id = users.id
+        AND invitation_tokens.purpose = 'password_setup'
+        AND invitation_tokens.created_at = (
+          SELECT MAX(latest_invite.created_at)
+          FROM invitation_tokens AS latest_invite
+          WHERE latest_invite.user_id = users.id
+            AND latest_invite.purpose = 'password_setup'
+        )
+       ORDER BY
+        CASE teacher_applications.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
+        teacher_applications.created_at DESC
+       LIMIT 12`,
+    )
+    .bind(now)
+    .all<OnboardingApplicationRow>();
+
+  const onboardingTeachers = await db
+    .prepare(
+      `SELECT users.id, users.name, users.email, users.role, users.status, users.created_at,
+              invitation_tokens.created_at AS invite_created_at,
+              invitation_tokens.expires_at AS invite_expires_at,
+              invitation_tokens.used_at AS invite_used_at,
+              (SELECT COUNT(*) FROM sessions WHERE sessions.user_id = users.id AND sessions.expires_at > ?) AS active_sessions,
+              CASE
+                WHEN invitation_tokens.id IS NULL THEN 'none'
+                WHEN invitation_tokens.used_at IS NOT NULL THEN 'used'
+                WHEN invitation_tokens.expires_at <= ? THEN 'expired'
+                ELSE 'sent'
+              END AS invitation_status
+       FROM users
+       LEFT JOIN invitation_tokens ON invitation_tokens.user_id = users.id
+        AND invitation_tokens.purpose = 'password_setup'
+        AND invitation_tokens.created_at = (
+          SELECT MAX(latest_invite.created_at)
+          FROM invitation_tokens AS latest_invite
+          WHERE latest_invite.user_id = users.id
+            AND latest_invite.purpose = 'password_setup'
+        )
+       WHERE users.role = 'teacher'
+       ORDER BY
+        CASE
+          WHEN invitation_tokens.id IS NULL THEN 0
+          WHEN invitation_tokens.used_at IS NULL AND invitation_tokens.expires_at <= ? THEN 1
+          WHEN invitation_tokens.used_at IS NULL THEN 2
+          ELSE 3
+        END,
+        users.name ASC`,
+    )
+    .bind(now, now, now)
+    .all<OnboardingUserRow>();
+
+  const onboardingParents = await db
+    .prepare(
+      `SELECT users.id, users.name, users.email, users.role, users.status, users.created_at,
+              invitation_tokens.created_at AS invite_created_at,
+              invitation_tokens.expires_at AS invite_expires_at,
+              invitation_tokens.used_at AS invite_used_at,
+              (SELECT COUNT(*) FROM sessions WHERE sessions.user_id = users.id AND sessions.expires_at > ?) AS active_sessions,
+              CASE
+                WHEN invitation_tokens.id IS NULL THEN 'none'
+                WHEN invitation_tokens.used_at IS NOT NULL THEN 'used'
+                WHEN invitation_tokens.expires_at <= ? THEN 'expired'
+                ELSE 'sent'
+              END AS invitation_status
+       FROM users
+       LEFT JOIN invitation_tokens ON invitation_tokens.user_id = users.id
+        AND invitation_tokens.purpose = 'password_setup'
+        AND invitation_tokens.created_at = (
+          SELECT MAX(latest_invite.created_at)
+          FROM invitation_tokens AS latest_invite
+          WHERE latest_invite.user_id = users.id
+            AND latest_invite.purpose = 'password_setup'
+        )
+       WHERE users.role = 'parent'
+       ORDER BY
+        CASE
+          WHEN invitation_tokens.id IS NULL THEN 0
+          WHEN invitation_tokens.used_at IS NULL AND invitation_tokens.expires_at <= ? THEN 1
+          WHEN invitation_tokens.used_at IS NULL THEN 2
+          ELSE 3
+        END,
+        users.name ASC`,
+    )
+    .bind(now, now, now)
+    .all<OnboardingUserRow>();
+
+  const onboardingStudents = await db
+    .prepare(
+      `SELECT users.id, users.name, users.email, users.role, users.status, users.created_at,
+              parent.id AS parent_id, parent.name AS parent_name, parent.email AS parent_email,
+              teacher.id AS teacher_id, teacher.name AS teacher_name, teacher.email AS teacher_email,
+              courses.id AS course_id, courses.title AS course_title,
+              student_profiles.learning_goal,
+              invitation_tokens.created_at AS invite_created_at,
+              invitation_tokens.expires_at AS invite_expires_at,
+              invitation_tokens.used_at AS invite_used_at,
+              (SELECT COUNT(*) FROM sessions WHERE sessions.user_id = users.id AND sessions.expires_at > ?) AS active_sessions,
+              (SELECT COUNT(*) FROM class_sessions WHERE class_sessions.student_id = users.id AND class_sessions.status = 'scheduled') AS scheduled_classes,
+              CASE
+                WHEN invitation_tokens.id IS NULL THEN 'none'
+                WHEN invitation_tokens.used_at IS NOT NULL THEN 'used'
+                WHEN invitation_tokens.expires_at <= ? THEN 'expired'
+                ELSE 'sent'
+              END AS invitation_status
+       FROM users
+       LEFT JOIN student_profiles ON student_profiles.user_id = users.id
+       LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id
+       LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id
+       LEFT JOIN courses ON courses.id = student_profiles.course_id
+       LEFT JOIN invitation_tokens ON invitation_tokens.user_id = users.id
+        AND invitation_tokens.purpose = 'password_setup'
+        AND invitation_tokens.created_at = (
+          SELECT MAX(latest_invite.created_at)
+          FROM invitation_tokens AS latest_invite
+          WHERE latest_invite.user_id = users.id
+            AND latest_invite.purpose = 'password_setup'
+        )
+       WHERE users.role = 'student'
+       ORDER BY
+        CASE
+          WHEN student_profiles.teacher_id IS NULL OR student_profiles.course_id IS NULL THEN 0
+          WHEN NOT EXISTS (
+            SELECT 1 FROM class_sessions
+            WHERE class_sessions.student_id = users.id
+              AND class_sessions.status = 'scheduled'
+          ) THEN 1
+          WHEN invitation_tokens.id IS NULL THEN 2
+          WHEN invitation_tokens.used_at IS NULL AND invitation_tokens.expires_at <= ? THEN 3
+          WHEN invitation_tokens.used_at IS NULL THEN 4
+          ELSE 5
+        END,
+        users.name ASC`,
+    )
+    .bind(now, now, now)
+    .all<OnboardingStudentRow>();
+
   return {
     counts: counts ?? {},
     applications: applications.results ?? [],
@@ -462,5 +661,11 @@ export async function getAdminData() {
     attendance: attendance.results ?? [],
     homework: homework.results ?? [],
     progress: progress.results ?? [],
+    onboarding: {
+      applications: onboardingApplications.results ?? [],
+      teachers: onboardingTeachers.results ?? [],
+      parents: onboardingParents.results ?? [],
+      students: onboardingStudents.results ?? [],
+    },
   };
 }

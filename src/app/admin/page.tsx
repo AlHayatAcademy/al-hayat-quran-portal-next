@@ -7,6 +7,8 @@ import {
   ClipboardList,
   GraduationCap,
   Headphones,
+  Link2,
+  Mail,
   ShieldCheck,
   TrendingUp,
   Users,
@@ -17,6 +19,39 @@ import { getAdminData } from "@/lib/academy";
 
 export const dynamic = "force-dynamic";
 
+function StatusBadge({
+  children,
+  tone = "slate",
+}: {
+  children: React.ReactNode;
+  tone?: "emerald" | "amber" | "red" | "sky" | "slate" | "violet";
+}) {
+  const tones = {
+    emerald: "bg-emerald-100 text-emerald-800",
+    amber: "bg-amber-100 text-amber-900",
+    red: "bg-red-100 text-red-700",
+    sky: "bg-sky-100 text-sky-800",
+    slate: "bg-slate-100 text-slate-700",
+    violet: "bg-violet-100 text-violet-800",
+  };
+
+  return <span className={`rounded-full px-3 py-1 text-xs font-bold ${tones[tone]}`}>{children}</span>;
+}
+
+function inviteBadge(status: string) {
+  if (status === "used") return <StatusBadge tone="emerald">Password created</StatusBadge>;
+  if (status === "sent") return <StatusBadge tone="sky">Setup sent</StatusBadge>;
+  if (status === "expired") return <StatusBadge tone="red">Expired</StatusBadge>;
+  return <StatusBadge tone="amber">Setup needed</StatusBadge>;
+}
+
+function inviteActionLabel(status: string) {
+  if (status === "sent") return "Resend setup link";
+  if (status === "expired") return "Send new setup link";
+  if (status === "used") return "Send setup link";
+  return "Send setup link";
+}
+
 export default async function AdminPage({
   searchParams,
 }: {
@@ -25,6 +60,29 @@ export default async function AdminPage({
   const user = await requireRole("admin");
   const data = await getAdminData();
   const params = await searchParams;
+  const onboardingStats = {
+    stuck:
+      data.onboarding.teachers.filter((item) => item.invitation_status === "none" || item.invitation_status === "expired")
+        .length +
+      data.onboarding.parents.filter((item) => item.invitation_status === "none" || item.invitation_status === "expired")
+        .length +
+      data.onboarding.students.filter(
+        (item) =>
+          item.invitation_status === "none" ||
+          item.invitation_status === "expired" ||
+          !item.teacher_id ||
+          !item.course_id ||
+          item.scheduled_classes === 0,
+      ).length,
+    setupSent:
+      data.onboarding.teachers.filter((item) => item.invitation_status === "sent").length +
+      data.onboarding.parents.filter((item) => item.invitation_status === "sent").length +
+      data.onboarding.students.filter((item) => item.invitation_status === "sent").length,
+    loginReady:
+      data.onboarding.teachers.filter((item) => item.invitation_status === "used" || item.active_sessions > 0).length +
+      data.onboarding.parents.filter((item) => item.invitation_status === "used" || item.active_sessions > 0).length +
+      data.onboarding.students.filter((item) => item.invitation_status === "used" || item.active_sessions > 0).length,
+  };
   const metrics = [
     { title: "Students", value: String(data.counts.students ?? 0), icon: Users, tone: "bg-emerald-50 text-emerald-700" },
     { title: "Teachers", value: String(data.counts.teachers ?? 0), icon: GraduationCap, tone: "bg-amber-50 text-amber-700" },
@@ -87,6 +145,208 @@ export default async function AdminPage({
           </div>
         ) : null}
 
+        <section className="mt-8 rounded-2xl border border-emerald-900/10 bg-white p-5 shadow-sm">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div>
+              <p className="text-sm font-bold uppercase tracking-[0.2em] text-emerald-700">Onboarding Center</p>
+              <h2 className="mt-1 text-2xl font-black tracking-tight text-emerald-950">Account setup command center</h2>
+              <p className="mt-2 max-w-3xl text-sm text-slate-600">
+                See exactly who can log in, who has a setup link pending, and which students still need assignment or
+                class scheduling.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-3 lg:min-w-[28rem]">
+              <div className="rounded-xl bg-amber-50 p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-amber-800">Needs action</p>
+                <p className="mt-1 text-2xl font-black text-amber-950">{onboardingStats.stuck}</p>
+              </div>
+              <div className="rounded-xl bg-sky-50 p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-800">Setup sent</p>
+                <p className="mt-1 text-2xl font-black text-sky-950">{onboardingStats.setupSent}</p>
+              </div>
+              <div className="rounded-xl bg-emerald-50 p-3">
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-emerald-800">Login ready</p>
+                <p className="mt-1 text-2xl font-black text-emerald-950">{onboardingStats.loginReady}</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-6 xl:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 p-4">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="font-bold text-slate-950">Teacher Applications</h3>
+                <StatusBadge tone="amber">
+                  {data.onboarding.applications.filter((item) => item.status === "pending").length} pending
+                </StatusBadge>
+              </div>
+              <div className="mt-4 space-y-3">
+                {data.onboarding.applications.map((application) => (
+                  <div key={application.id} className="rounded-xl bg-slate-50 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-bold text-slate-950">{application.name}</p>
+                        <p className="text-sm text-slate-600">
+                          {application.specialty ?? "Specialty pending"} . {application.experience_years ?? 0} years
+                        </p>
+                        <p className="text-xs text-slate-500">{application.email}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <StatusBadge
+                          tone={
+                            application.status === "approved"
+                              ? "emerald"
+                              : application.status === "rejected"
+                                ? "red"
+                                : "amber"
+                          }
+                        >
+                          {application.status === "approved"
+                            ? "Approved"
+                            : application.status === "rejected"
+                              ? "Rejected"
+                              : "Pending"}
+                        </StatusBadge>
+                        {application.teacher_user_id ? inviteBadge(application.invitation_status) : null}
+                      </div>
+                    </div>
+                    {application.status === "pending" ? (
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <form action="/api/admin/teacher-applications" method="post">
+                          <input type="hidden" name="email" value={application.email} />
+                          <input type="hidden" name="action" value="approve" />
+                          <button className="rounded-full bg-emerald-900 px-4 py-2 text-xs font-bold text-white">
+                            Approve + send setup
+                          </button>
+                        </form>
+                        <form action="/api/admin/teacher-applications" method="post">
+                          <input type="hidden" name="email" value={application.email} />
+                          <input type="hidden" name="action" value="reject" />
+                          <button className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-bold text-red-700">
+                            Reject
+                          </button>
+                        </form>
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+                {!data.onboarding.applications.length ? (
+                  <p className="text-sm text-slate-500">No teacher applications yet.</p>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 p-4">
+              <h3 className="font-bold text-slate-950">Teachers</h3>
+              <div className="mt-4 space-y-3">
+                {data.onboarding.teachers.map((teacher) => (
+                  <div key={teacher.id} className="rounded-xl bg-slate-50 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-bold text-slate-950">{teacher.name}</p>
+                        <p className="text-sm text-slate-600">{teacher.email}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {inviteBadge(teacher.invitation_status)}
+                        {teacher.active_sessions > 0 ? <StatusBadge tone="emerald">Active session</StatusBadge> : null}
+                      </div>
+                    </div>
+                    <form action="/api/admin/invitations" method="post" className="mt-4 flex flex-wrap gap-2">
+                      <input type="hidden" name="userId" value={teacher.id} />
+                      <button className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-emerald-950">
+                        <Mail className="h-4 w-4" />
+                        {inviteActionLabel(teacher.invitation_status)}
+                      </button>
+                    </form>
+                  </div>
+                ))}
+                {!data.onboarding.teachers.length ? <p className="text-sm text-slate-500">No teachers yet.</p> : null}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 grid gap-6 xl:grid-cols-2">
+            <div className="rounded-xl border border-slate-200 p-4">
+              <h3 className="font-bold text-slate-950">Students</h3>
+              <div className="mt-4 space-y-3">
+                {data.onboarding.students.map((student) => (
+                  <div key={student.id} className="rounded-xl bg-slate-50 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-bold text-slate-950">{student.name}</p>
+                        <p className="text-sm text-slate-600">{student.email}</p>
+                        <p className="mt-1 text-sm text-slate-600">
+                          Parent: {student.parent_name ?? "Unassigned"} . Teacher: {student.teacher_name ?? "Unassigned"}
+                        </p>
+                        <p className="text-sm text-slate-600">Course: {student.course_title ?? "Course needed"}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {inviteBadge(student.invitation_status)}
+                        {student.teacher_id && student.course_id ? (
+                          <StatusBadge tone="emerald">Assigned</StatusBadge>
+                        ) : (
+                          <StatusBadge tone="amber">Needs assignment</StatusBadge>
+                        )}
+                        {student.scheduled_classes > 0 ? (
+                          <StatusBadge tone="emerald">{student.scheduled_classes} class</StatusBadge>
+                        ) : (
+                          <StatusBadge tone="violet">Needs class</StatusBadge>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
+                      <form action="/api/admin/invitations" method="post">
+                        <input type="hidden" name="userId" value={student.id} />
+                        <button className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-emerald-950 lg:w-auto">
+                          <Mail className="h-4 w-4" />
+                          {inviteActionLabel(student.invitation_status)}
+                        </button>
+                      </form>
+                      {student.teacher_id && student.course_id ? null : (
+                        <a
+                          href="#assign-student"
+                          className="inline-flex items-center justify-center gap-2 rounded-full border border-emerald-900/20 bg-white px-4 py-2 text-xs font-bold text-emerald-950"
+                        >
+                          <Link2 className="h-4 w-4" />
+                          Assign
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                {!data.onboarding.students.length ? <p className="text-sm text-slate-500">No students yet.</p> : null}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200 p-4">
+              <h3 className="font-bold text-slate-950">Parents</h3>
+              <div className="mt-4 space-y-3">
+                {data.onboarding.parents.map((parent) => (
+                  <div key={parent.id} className="rounded-xl bg-slate-50 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                      <div>
+                        <p className="font-bold text-slate-950">{parent.name}</p>
+                        <p className="text-sm text-slate-600">{parent.email}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {inviteBadge(parent.invitation_status)}
+                        {parent.active_sessions > 0 ? <StatusBadge tone="emerald">Active session</StatusBadge> : null}
+                      </div>
+                    </div>
+                    <form action="/api/admin/invitations" method="post" className="mt-4 flex flex-wrap gap-2">
+                      <input type="hidden" name="userId" value={parent.id} />
+                      <button className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-emerald-950">
+                        <Mail className="h-4 w-4" />
+                        {inviteActionLabel(parent.invitation_status)}
+                      </button>
+                    </form>
+                  </div>
+                ))}
+                {!data.onboarding.parents.length ? <p className="text-sm text-slate-500">No parents yet.</p> : null}
+              </div>
+            </div>
+          </div>
+        </section>
+
         <div className="mt-8 grid gap-6 xl:grid-cols-3">
           <SectionCard title="Add / Update Course">
             <form action="/api/admin/courses" method="post" className="space-y-4">
@@ -125,7 +385,7 @@ export default async function AdminPage({
           </SectionCard>
 
           <SectionCard title="Assign Student">
-            <form action="/api/admin/assignments" method="post" className="space-y-4">
+            <form id="assign-student" action="/api/admin/assignments" method="post" className="space-y-4">
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">Student</span>
                 <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="studentId" required>
