@@ -1,4 +1,5 @@
 import { MetricCard, SectionCard } from "@/components/dashboard-widgets";
+import { AdminNav } from "@/components/admin-nav";
 import {
   BookOpen,
   CalendarDays,
@@ -173,6 +174,7 @@ export default async function AdminPage({
             </button>
           </form>
         </div>
+        <AdminNav active="overview" />
         <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {metrics.map((module) => (
             <MetricCard key={module.title} {...module} />
@@ -831,7 +833,7 @@ export default async function AdminPage({
             title="Security Tools"
             description="Reset passwords only when setup links or normal login recovery are not enough."
           >
-            <div className="mb-4 flex items-start gap-3 rounded-xl bg-slate-50 p-4">
+            <div id="security-tools" className="mb-4 flex items-start gap-3 rounded-xl bg-slate-50 p-4">
               <LockKeyhole className="mt-0.5 h-5 w-5 text-emerald-700" />
               <div>
                 <p className="font-bold text-slate-950">Password reset</p>

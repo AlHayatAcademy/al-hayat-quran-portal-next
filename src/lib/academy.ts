@@ -112,6 +112,15 @@ export type OnboardingApplicationRow = {
   invitation_status: InvitationStatus;
 };
 
+export type PeopleDirectoryRow = OnboardingUserRow & {
+  parent_name: string | null;
+  parent_email: string | null;
+  teacher_name: string | null;
+  teacher_email: string | null;
+  course_title: string | null;
+  scheduled_classes: number;
+};
+
 export type PaymentRow = {
   id: string;
   amount_cents: number;
@@ -120,6 +129,33 @@ export type PaymentRow = {
   paid_at: string | null;
   notes: string | null;
 };
+
+function invitationStatusFilter(status: string, row: { invitation_status: InvitationStatus; active_sessions: number }) {
+  if (status === "needs_setup") return row.invitation_status === "none" || row.invitation_status === "expired";
+  if (status === "setup_sent") return row.invitation_status === "sent";
+  if (status === "login_ready") return row.invitation_status === "used" || row.active_sessions > 0;
+  return true;
+}
+
+function matchesPeopleSearch(row: PeopleDirectoryRow, search: string) {
+  if (!search) return true;
+
+  const haystack = [
+    row.name,
+    row.email,
+    row.role,
+    row.parent_name,
+    row.parent_email,
+    row.teacher_name,
+    row.teacher_email,
+    row.course_title,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  return haystack.includes(search.toLowerCase());
+}
 
 export async function getDashboardData(user: AuthUser) {
   const db = await getDb();
@@ -307,6 +343,86 @@ export async function getDashboardData(user: AuthUser) {
     teacherStudents: teacherStudents.results ?? [],
     attendance: attendance.results ?? [],
     childProfiles: childProfiles.results ?? [],
+  };
+}
+
+export async function getAdminPeopleData({
+  role = "all",
+  setup = "all",
+  q = "",
+}: {
+  role?: string;
+  setup?: string;
+  q?: string;
+}) {
+  const db = await getDb();
+  const now = new Date().toISOString();
+
+  const people = await db
+    .prepare(
+      `SELECT users.id, users.name, users.email, users.role, users.status, users.created_at,
+              parent.name AS parent_name, parent.email AS parent_email,
+              teacher.name AS teacher_name, teacher.email AS teacher_email,
+              courses.title AS course_title,
+              invitation_tokens.created_at AS invite_created_at,
+              invitation_tokens.expires_at AS invite_expires_at,
+              invitation_tokens.used_at AS invite_used_at,
+              (SELECT COUNT(*) FROM sessions WHERE sessions.user_id = users.id AND sessions.expires_at > ?) AS active_sessions,
+              (
+                SELECT COUNT(*)
+                FROM class_sessions
+                WHERE users.role = 'student'
+                  AND (
+                    class_sessions.student_id = users.id
+                    OR (
+                      class_sessions.student_id IS NULL
+                      AND class_sessions.teacher_id = student_profiles.teacher_id
+                      AND class_sessions.course_id = student_profiles.course_id
+                    )
+                  )
+              ) AS scheduled_classes,
+              CASE
+                WHEN invitation_tokens.id IS NULL THEN 'none'
+                WHEN invitation_tokens.used_at IS NOT NULL THEN 'used'
+                WHEN invitation_tokens.expires_at <= ? THEN 'expired'
+                ELSE 'sent'
+              END AS invitation_status
+       FROM users
+       LEFT JOIN student_profiles ON student_profiles.user_id = users.id
+       LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id
+       LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id
+       LEFT JOIN courses ON courses.id = student_profiles.course_id
+       LEFT JOIN invitation_tokens ON invitation_tokens.user_id = users.id
+        AND invitation_tokens.purpose = 'password_setup'
+        AND invitation_tokens.created_at = (
+          SELECT MAX(latest_invite.created_at)
+          FROM invitation_tokens AS latest_invite
+          WHERE latest_invite.user_id = users.id
+            AND latest_invite.purpose = 'password_setup'
+        )
+       WHERE users.role IN ('teacher', 'student', 'parent')
+       ORDER BY
+        CASE users.role WHEN 'student' THEN 0 WHEN 'parent' THEN 1 ELSE 2 END,
+        users.name ASC
+       LIMIT 200`,
+    )
+    .bind(now, now)
+    .all<PeopleDirectoryRow>();
+
+  const rows = (people.results ?? []).filter((row) => {
+    const roleMatches = role === "all" || row.role === role;
+    return roleMatches && invitationStatusFilter(setup, row) && matchesPeopleSearch(row, q.trim());
+  });
+
+  return {
+    people: rows,
+    totals: {
+      all: people.results?.length ?? 0,
+      students: people.results?.filter((item) => item.role === "student").length ?? 0,
+      parents: people.results?.filter((item) => item.role === "parent").length ?? 0,
+      teachers: people.results?.filter((item) => item.role === "teacher").length ?? 0,
+      shown: rows.length,
+    },
   };
 }
 
