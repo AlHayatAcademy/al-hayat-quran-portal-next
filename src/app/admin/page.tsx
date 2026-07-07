@@ -1,4 +1,3 @@
-import { SiteHeader } from "@/components/site-shell";
 import { MetricCard, SectionCard } from "@/components/dashboard-widgets";
 import {
   BookOpen,
@@ -49,7 +48,6 @@ function inviteBadge(status: string) {
 function inviteActionLabel(status: string) {
   if (status === "sent") return "Resend setup link";
   if (status === "expired") return "Send new setup link";
-  if (status === "used") return "Send setup link";
   return "Send setup link";
 }
 
@@ -90,6 +88,22 @@ function ActionPanel({
       </summary>
       <div className="border-t border-slate-100 p-5">{children}</div>
     </details>
+  );
+}
+
+function SetupLinkForm({ userId, status }: { userId: string; status: string }) {
+  if (status === "used") {
+    return null;
+  }
+
+  return (
+    <form action="/api/admin/invitations" method="post" className="mt-4 flex flex-wrap gap-2">
+      <input type="hidden" name="userId" value={userId} />
+      <button className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-emerald-950">
+        <Mail className="h-4 w-4" />
+        {inviteActionLabel(status)}
+      </button>
+    </form>
   );
 }
 
@@ -145,7 +159,6 @@ export default async function AdminPage({
 
   return (
     <main className="min-h-screen bg-slate-50">
-      <SiteHeader />
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <div className="flex flex-col gap-2">
           <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-700">Admin</p>
@@ -299,13 +312,7 @@ export default async function AdminPage({
                         {teacher.active_sessions > 0 ? <StatusBadge tone="emerald">Active session</StatusBadge> : null}
                       </div>
                     </div>
-                    <form action="/api/admin/invitations" method="post" className="mt-4 flex flex-wrap gap-2">
-                      <input type="hidden" name="userId" value={teacher.id} />
-                      <button className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-emerald-950">
-                        <Mail className="h-4 w-4" />
-                        {inviteActionLabel(teacher.invitation_status)}
-                      </button>
-                    </form>
+                    <SetupLinkForm userId={teacher.id} status={teacher.invitation_status} />
                   </div>
                 ))}
                 {!data.onboarding.teachers.length ? <p className="text-sm text-slate-500">No teachers yet.</p> : null}
@@ -346,13 +353,15 @@ export default async function AdminPage({
                       </div>
                     </div>
                     <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
-                      <form action="/api/admin/invitations" method="post">
-                        <input type="hidden" name="userId" value={student.id} />
-                        <button className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-emerald-950 lg:w-auto">
-                          <Mail className="h-4 w-4" />
-                          {inviteActionLabel(student.invitation_status)}
-                        </button>
-                      </form>
+                      {student.invitation_status === "used" ? <div /> : (
+                        <form action="/api/admin/invitations" method="post">
+                          <input type="hidden" name="userId" value={student.id} />
+                          <button className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-emerald-950 lg:w-auto">
+                            <Mail className="h-4 w-4" />
+                            {inviteActionLabel(student.invitation_status)}
+                          </button>
+                        </form>
+                      )}
                       {student.teacher_id && student.course_id ? null : (
                         <a
                           href="#assign-student"
@@ -385,13 +394,7 @@ export default async function AdminPage({
                         {parent.active_sessions > 0 ? <StatusBadge tone="emerald">Active session</StatusBadge> : null}
                       </div>
                     </div>
-                    <form action="/api/admin/invitations" method="post" className="mt-4 flex flex-wrap gap-2">
-                      <input type="hidden" name="userId" value={parent.id} />
-                      <button className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-emerald-950">
-                        <Mail className="h-4 w-4" />
-                        {inviteActionLabel(parent.invitation_status)}
-                      </button>
-                    </form>
+                    <SetupLinkForm userId={parent.id} status={parent.invitation_status} />
                   </div>
                 ))}
                 {!data.onboarding.parents.length ? <p className="text-sm text-slate-500">No parents yet.</p> : null}
