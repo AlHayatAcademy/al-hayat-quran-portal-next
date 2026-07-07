@@ -63,6 +63,36 @@ function QueueFooter({ shown, total }: { shown: number; total: number }) {
   );
 }
 
+function ActionPanel({
+  title,
+  description,
+  children,
+  defaultOpen = false,
+}: {
+  title: string;
+  description: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  return (
+    <details className="group rounded-2xl border border-slate-200 bg-white shadow-sm" open={defaultOpen}>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 p-5">
+        <span>
+          <span className="block text-lg font-bold text-slate-950">{title}</span>
+          <span className="mt-1 block text-sm text-slate-600">{description}</span>
+        </span>
+        <span className="rounded-full border border-emerald-900/20 px-3 py-1 text-xs font-bold text-emerald-950 group-open:hidden">
+          Open
+        </span>
+        <span className="hidden rounded-full border border-slate-200 px-3 py-1 text-xs font-bold text-slate-600 group-open:inline">
+          Close
+        </span>
+      </summary>
+      <div className="border-t border-slate-100 p-5">{children}</div>
+    </details>
+  );
+}
+
 export default async function AdminPage({
   searchParams,
 }: {
@@ -371,7 +401,12 @@ export default async function AdminPage({
           </div>
         </section>
 
-        <div className="mt-8 grid gap-6 xl:grid-cols-3">
+        <div className="mt-8">
+          <ActionPanel
+            title="Enrollment Setup"
+            description="Add courses, assign students, and schedule classes when onboarding needs a manual update."
+          >
+            <div className="grid gap-6 xl:grid-cols-3">
           <SectionCard title="Add / Update Course">
             <form action="/api/admin/courses" method="post" className="space-y-4">
               <label className="block">
@@ -507,9 +542,16 @@ export default async function AdminPage({
               </button>
             </form>
           </SectionCard>
+            </div>
+          </ActionPanel>
         </div>
 
-        <div className="mt-8 grid gap-6 xl:grid-cols-3">
+        <div className="mt-6">
+          <ActionPanel
+            title="Class Operations"
+            description="Record attendance, assign homework, and update lesson progress after classes."
+          >
+            <div className="grid gap-6 xl:grid-cols-3">
           <SectionCard title="Mark Attendance">
             <form action="/api/admin/attendance" method="post" className="space-y-4">
               <label className="block">
@@ -670,6 +712,8 @@ export default async function AdminPage({
               </button>
             </form>
           </SectionCard>
+            </div>
+          </ActionPanel>
         </div>
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
@@ -780,7 +824,10 @@ export default async function AdminPage({
         </div>
 
         <div className="mt-8">
-          <SectionCard title="Security Tools">
+          <ActionPanel
+            title="Security Tools"
+            description="Reset passwords only when setup links or normal login recovery are not enough."
+          >
             <div className="mb-4 flex items-start gap-3 rounded-xl bg-slate-50 p-4">
               <LockKeyhole className="mt-0.5 h-5 w-5 text-emerald-700" />
               <div>
@@ -829,7 +876,7 @@ export default async function AdminPage({
                 </button>
               </div>
             </form>
-          </SectionCard>
+          </ActionPanel>
         </div>
       </div>
     </main>
