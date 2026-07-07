@@ -551,6 +551,48 @@ export default async function AdminPage({
             </div>
           </SectionCard>
         </div>
+        <div className="mt-8">
+          <SectionCard title="Reset User Password">
+            <form action="/api/admin/password-reset" method="post" className="grid gap-4 lg:grid-cols-4">
+              <label className="block lg:col-span-2">
+                <span className="text-sm font-bold text-slate-700">User</span>
+                <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="userId" required>
+                  <option value="">Select user</option>
+                  {data.resetUsers.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name} - {item.role} - {item.email}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">New password</span>
+                <input
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                  name="password"
+                  type="password"
+                  minLength={8}
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Confirm password</span>
+                <input
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                  name="confirmPassword"
+                  type="password"
+                  minLength={8}
+                  required
+                />
+              </label>
+              <div className="flex items-end lg:col-start-4">
+                <button className="h-11 w-full rounded-full bg-emerald-900 text-sm font-bold text-white">
+                  Reset Password
+                </button>
+              </div>
+            </form>
+          </SectionCard>
+        </div>
       </div>
     </main>
   );

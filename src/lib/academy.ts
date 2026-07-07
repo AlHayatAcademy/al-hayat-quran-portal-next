@@ -293,12 +293,21 @@ export async function getAdminData() {
 
   const users = await db
     .prepare(
-      `SELECT name, email, role, status, created_at
+      `SELECT id, name, email, role, status, created_at
        FROM users
        ORDER BY created_at DESC
        LIMIT 8`,
     )
-    .all<{ name: string; email: string; role: string; status: string; created_at: string }>();
+    .all<{ id: string; name: string; email: string; role: string; status: string; created_at: string }>();
+
+  const resetUsers = await db
+    .prepare(
+      `SELECT id, name, email, role, status
+       FROM users
+       WHERE status = 'active'
+       ORDER BY role ASC, name ASC`,
+    )
+    .all<{ id: string; name: string; email: string; role: string; status: string }>();
 
   const families = await db
     .prepare(
@@ -444,6 +453,7 @@ export async function getAdminData() {
     counts: counts ?? {},
     applications: applications.results ?? [],
     users: users.results ?? [],
+    resetUsers: resetUsers.results ?? [],
     families: families.results ?? [],
     teachers: teachers.results ?? [],
     students: students.results ?? [],

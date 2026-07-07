@@ -532,6 +532,47 @@ export default async function DashboardPage({
             </div>
           </>
         ) : null}
+
+        <div className="mt-8">
+          <SectionCard title="Change Password">
+            <form action="/api/account/password" method="post" className="grid gap-4 lg:grid-cols-4">
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Current password</span>
+                <input
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                  name="currentPassword"
+                  type="password"
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">New password</span>
+                <input
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                  name="newPassword"
+                  type="password"
+                  minLength={8}
+                  required
+                />
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Confirm password</span>
+                <input
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                  name="confirmPassword"
+                  type="password"
+                  minLength={8}
+                  required
+                />
+              </label>
+              <div className="flex items-end">
+                <button className="h-11 w-full rounded-full bg-emerald-900 text-sm font-bold text-white">
+                  Update Password
+                </button>
+              </div>
+            </form>
+          </SectionCard>
+        </div>
       </div>
     </main>
   );
