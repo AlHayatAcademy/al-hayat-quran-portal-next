@@ -53,6 +53,16 @@ function inviteActionLabel(status: string) {
   return "Send setup link";
 }
 
+function QueueFooter({ shown, total }: { shown: number; total: number }) {
+  if (total <= shown) return null;
+
+  return (
+    <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs font-semibold text-slate-500">
+      Showing the top {shown} priority records. {total - shown} more are available through the admin workflow.
+    </p>
+  );
+}
+
 export default async function AdminPage({
   searchParams,
 }: {
@@ -83,6 +93,13 @@ export default async function AdminPage({
       data.onboarding.teachers.filter((item) => item.invitation_status === "used" || item.active_sessions > 0).length +
       data.onboarding.parents.filter((item) => item.invitation_status === "used" || item.active_sessions > 0).length +
       data.onboarding.students.filter((item) => item.invitation_status === "used" || item.active_sessions > 0).length,
+  };
+  const queueLimit = 5;
+  const onboardingQueues = {
+    applications: data.onboarding.applications.slice(0, queueLimit),
+    teachers: data.onboarding.teachers.slice(0, queueLimit),
+    students: data.onboarding.students.slice(0, queueLimit),
+    parents: data.onboarding.parents.slice(0, queueLimit),
   };
   const metrics = [
     { title: "Students", value: String(data.counts.students ?? 0), icon: Users, tone: "bg-emerald-50 text-emerald-700" },
@@ -181,7 +198,7 @@ export default async function AdminPage({
                 </StatusBadge>
               </div>
               <div className="mt-4 space-y-3">
-                {data.onboarding.applications.map((application) => (
+                {onboardingQueues.applications.map((application) => (
                   <div key={application.id} className="rounded-xl bg-slate-50 p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -233,13 +250,14 @@ export default async function AdminPage({
                 {!data.onboarding.applications.length ? (
                   <p className="text-sm text-slate-500">No teacher applications yet.</p>
                 ) : null}
+                <QueueFooter shown={onboardingQueues.applications.length} total={data.onboarding.applications.length} />
               </div>
             </div>
 
             <div className="rounded-xl border border-slate-200 p-4">
               <h3 className="font-bold text-slate-950">Teachers</h3>
               <div className="mt-4 space-y-3">
-                {data.onboarding.teachers.map((teacher) => (
+                {onboardingQueues.teachers.map((teacher) => (
                   <div key={teacher.id} className="rounded-xl bg-slate-50 p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -261,6 +279,7 @@ export default async function AdminPage({
                   </div>
                 ))}
                 {!data.onboarding.teachers.length ? <p className="text-sm text-slate-500">No teachers yet.</p> : null}
+                <QueueFooter shown={onboardingQueues.teachers.length} total={data.onboarding.teachers.length} />
               </div>
             </div>
           </div>
@@ -269,7 +288,7 @@ export default async function AdminPage({
             <div className="rounded-xl border border-slate-200 p-4">
               <h3 className="font-bold text-slate-950">Students</h3>
               <div className="mt-4 space-y-3">
-                {data.onboarding.students.map((student) => (
+                {onboardingQueues.students.map((student) => (
                   <div key={student.id} className="rounded-xl bg-slate-50 p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -317,13 +336,14 @@ export default async function AdminPage({
                   </div>
                 ))}
                 {!data.onboarding.students.length ? <p className="text-sm text-slate-500">No students yet.</p> : null}
+                <QueueFooter shown={onboardingQueues.students.length} total={data.onboarding.students.length} />
               </div>
             </div>
 
             <div className="rounded-xl border border-slate-200 p-4">
               <h3 className="font-bold text-slate-950">Parents</h3>
               <div className="mt-4 space-y-3">
-                {data.onboarding.parents.map((parent) => (
+                {onboardingQueues.parents.map((parent) => (
                   <div key={parent.id} className="rounded-xl bg-slate-50 p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div>
@@ -345,6 +365,7 @@ export default async function AdminPage({
                   </div>
                 ))}
                 {!data.onboarding.parents.length ? <p className="text-sm text-slate-500">No parents yet.</p> : null}
+                <QueueFooter shown={onboardingQueues.parents.length} total={data.onboarding.parents.length} />
               </div>
             </div>
           </div>
