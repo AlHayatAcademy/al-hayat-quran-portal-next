@@ -438,6 +438,22 @@ export default async function AdminPage({
                     {item.student_name} {item.due_at ? `. Due ${new Date(item.due_at).toLocaleString()}` : ""}
                   </p>
                   <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">{item.status}</p>
+                  {item.feedback ? (
+                    <p className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-600">Feedback: {item.feedback}</p>
+                  ) : null}
+                  {item.status === "completed" ? (
+                    <form action="/api/admin/homework-review" method="post" className="mt-4 space-y-3">
+                      <input type="hidden" name="homeworkId" value={item.id} />
+                      <textarea
+                        className="min-h-20 w-full rounded-2xl border border-slate-200 p-3 text-sm outline-none focus:ring-4 focus:ring-emerald-900/10"
+                        name="feedback"
+                        placeholder="Review feedback"
+                      />
+                      <button className="h-10 rounded-full bg-emerald-900 px-4 text-sm font-bold text-white">
+                        Mark Reviewed
+                      </button>
+                    </form>
+                  ) : null}
                 </div>
               ))}
               {!data.homework.length ? <p className="text-sm text-slate-500">No homework assigned yet.</p> : null}

@@ -289,6 +289,17 @@ export default async function DashboardPage({
                     <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
                       {item.status}{item.due_at ? ` . Due ${formatDate(item.due_at)}` : ""}
                     </p>
+                    {item.feedback ? (
+                      <p className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-600">Teacher feedback: {item.feedback}</p>
+                    ) : null}
+                    {item.status !== "completed" && item.status !== "reviewed" ? (
+                      <form action="/api/student/homework" method="post" className="mt-4">
+                        <input type="hidden" name="homeworkId" value={item.id} />
+                        <button className="h-10 rounded-full bg-emerald-900 px-4 text-sm font-bold text-white">
+                          Mark Complete
+                        </button>
+                      </form>
+                    ) : null}
                   </div>
                 )) : <p className="text-sm text-slate-500">No homework assigned yet.</p>}
               </div>
@@ -372,6 +383,9 @@ export default async function DashboardPage({
                     <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
                       {item.status}{item.due_at ? ` . Due ${formatDate(item.due_at)}` : ""}
                     </p>
+                    {item.feedback ? (
+                      <p className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-600">Teacher feedback: {item.feedback}</p>
+                    ) : null}
                   </div>
                 )) : <p className="text-sm text-slate-500">No homework assigned yet.</p>}
               </div>
@@ -483,6 +497,22 @@ export default async function DashboardPage({
                         {item.student_name} {item.due_at ? `. Due: ${formatDate(item.due_at)}` : ""}
                       </p>
                       <p className="mt-3 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">{item.status}</p>
+                      {item.feedback ? (
+                        <p className="mt-3 rounded-xl bg-white p-3 text-sm text-slate-600">Feedback: {item.feedback}</p>
+                      ) : null}
+                      {user.role === "teacher" && item.status === "completed" ? (
+                        <form action="/api/teacher/homework-review" method="post" className="mt-4 space-y-3">
+                          <input type="hidden" name="homeworkId" value={item.id} />
+                          <textarea
+                            className="min-h-20 w-full rounded-2xl border border-slate-200 p-3 text-sm outline-none focus:ring-4 focus:ring-emerald-900/10"
+                            name="feedback"
+                            placeholder="Feedback for student"
+                          />
+                          <button className="h-10 rounded-full bg-emerald-900 px-4 text-sm font-bold text-white">
+                            Review Homework
+                          </button>
+                        </form>
+                      ) : null}
                     </div>
                   ))}
                   {data.progress.map((item) => (

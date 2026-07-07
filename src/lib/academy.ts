@@ -20,6 +20,7 @@ export type HomeworkRow = {
   instructions: string | null;
   due_at: string | null;
   status: string;
+  feedback: string | null;
   teacher_name?: string;
   student_name: string;
 };
@@ -116,7 +117,7 @@ export async function getDashboardData(user: AuthUser) {
   const homework = await db
     .prepare(
       `SELECT homework_items.id, homework_items.title, homework_items.instructions,
-              homework_items.due_at, homework_items.status,
+              homework_items.due_at, homework_items.status, homework_items.feedback,
               teacher.name AS teacher_name,
               student.name AS student_name
        FROM homework_items
@@ -412,7 +413,7 @@ export async function getAdminData() {
   const homework = await db
     .prepare(
       `SELECT homework_items.id, homework_items.title, homework_items.instructions,
-              homework_items.due_at, homework_items.status,
+              homework_items.due_at, homework_items.status, homework_items.feedback,
               teacher.name AS teacher_name,
               student.name AS student_name
        FROM homework_items
