@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 export default async function AdminPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; error?: string; invite?: string; email?: string }>;
+  searchParams: Promise<{ status?: string; error?: string; invite?: string; email?: string; emailStatus?: string }>;
 }) {
   const user = await requireRole("admin");
   const data = await getAdminData();
@@ -76,6 +76,11 @@ export default async function AdminPage({
         {params.invite ? (
           <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
             <p>Password setup link created{params.email ? ` for ${params.email}` : ""}.</p>
+            <p className="mt-1">
+              {params.emailStatus === "sent"
+                ? "Email sent automatically."
+                : "Email is not configured yet, so copy this link and send it manually."}
+            </p>
             <p className="mt-2 break-all rounded-xl bg-white p-3 font-mono text-xs text-slate-700">
               https://learn-quran.drimranhayat.com/invite?token={params.invite}
             </p>

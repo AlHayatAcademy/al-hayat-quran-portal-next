@@ -74,6 +74,7 @@ Apply auth/session migrations:
 
 ```bash
 npx wrangler d1 execute al_hayat_quran --file db/migrations/0002_auth_seed.sql --remote
+npx wrangler d1 execute al_hayat_quran --file db/migrations/0003_invitation_tokens.sql --remote
 ```
 
 Set the first-admin setup secret:
@@ -81,6 +82,15 @@ Set the first-admin setup secret:
 ```bash
 npx wrangler secret put SETUP_TOKEN
 ```
+
+Optional email delivery for setup links uses Resend. If these are not configured, the admin panel still shows the setup link so it can be sent manually.
+
+```bash
+npx wrangler secret put RESEND_API_KEY
+npx wrangler secret put EMAIL_FROM
+```
+
+`EMAIL_FROM` must be a sender address verified in Resend, such as `Al-Hayat Quran <onboarding@your-verified-domain.com>`.
 
 Then open:
 

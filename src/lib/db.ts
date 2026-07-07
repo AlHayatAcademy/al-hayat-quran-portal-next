@@ -3,6 +3,9 @@ import { getCloudflareContext } from "@opennextjs/cloudflare";
 type CloudflareD1Env = {
   DB: D1Database;
   SETUP_TOKEN?: string;
+  APP_URL?: string;
+  EMAIL_FROM?: string;
+  RESEND_API_KEY?: string;
 };
 
 export async function getCloudflareEnv() {

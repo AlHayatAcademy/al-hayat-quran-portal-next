@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { hashPassword, requireRole } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { sendPasswordSetupEmail } from "@/lib/email";
 import { createPasswordSetupInvite } from "@/lib/invitations";
 
 export async function POST(request: NextRequest) {
@@ -48,9 +49,18 @@ export async function POST(request: NextRequest) {
 
   const invite = await createPasswordSetupInvite(teacherId, admin.id);
   const redirectUrl = new URL("/admin", request.url);
+  const setupUrl = new URL(`/invite?token=${invite.token}`, request.url).toString();
+  const emailResult = await sendPasswordSetupEmail({
+    to: application.email,
+    name: application.name,
+    role: "teacher",
+    setupUrl,
+  });
+
   redirectUrl.searchParams.set("status", "approved");
   redirectUrl.searchParams.set("invite", invite.token);
   redirectUrl.searchParams.set("email", application.email);
+  redirectUrl.searchParams.set("emailStatus", emailResult.sent ? "sent" : emailResult.reason);
 
   await db.prepare("UPDATE teacher_applications SET status = 'approved' WHERE lower(email) = ?").bind(email).run();
   return NextResponse.redirect(redirectUrl);
