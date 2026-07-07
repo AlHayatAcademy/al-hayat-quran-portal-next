@@ -7,9 +7,14 @@ import { getDashboardData } from "@/lib/academy";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string; error?: string }>;
+}) {
   const user = await requireUser();
   const data = await getDashboardData(user);
+  const params = await searchParams;
   const metrics = [
     { title: "Role", value: user.role, icon: Users, tone: "bg-emerald-50 text-emerald-700" },
     { title: "Classes", value: String(data.classes.length), icon: CalendarDays, tone: "bg-amber-50 text-amber-700" },
@@ -38,6 +43,175 @@ export default async function DashboardPage() {
         <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric) => <MetricCard key={metric.title} {...metric} />)}
         </div>
+
+        {params.status || params.error ? (
+          <div
+            className={`mt-6 rounded-2xl border p-4 text-sm font-semibold ${
+              params.error
+                ? "border-red-200 bg-red-50 text-red-700"
+                : "border-emerald-200 bg-emerald-50 text-emerald-700"
+            }`}
+          >
+            {params.error ? "Please check the form and try again." : "Saved successfully. Your dashboard is updated."}
+          </div>
+        ) : null}
+
+        {user.role === "teacher" ? (
+          <div className="mt-8 grid gap-6 xl:grid-cols-3">
+            <SectionCard title="My Students">
+              <div className="space-y-3">
+                {data.teacherStudents.map((student) => (
+                  <div key={student.student_id} className="rounded-2xl bg-slate-50 p-4">
+                    <p className="font-bold text-slate-950">{student.student_name}</p>
+                    <p className="text-sm text-slate-600">
+                      {student.course_title ?? "Course pending"} {student.parent_name ? `. Parent: ${student.parent_name}` : ""}
+                    </p>
+                    {student.learning_goal ? (
+                      <p className="mt-2 text-xs font-semibold text-slate-500">{student.learning_goal}</p>
+                    ) : null}
+                  </div>
+                ))}
+                {!data.teacherStudents.length ? <p className="text-sm text-slate-500">No students assigned yet.</p> : null}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Mark Attendance">
+              <form action="/api/teacher/attendance" method="post" className="space-y-4">
+                <label className="block">
+                  <span className="text-sm font-bold text-slate-700">Class</span>
+                  <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="classSessionId" required>
+                    <option value="">Select class</option>
+                    {data.classes.filter((item) => item.student_name).map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.course_title} - {new Date(item.starts_at).toLocaleString()} - {item.student_name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <select className="h-11 w-full rounded-2xl border border-slate-200 px-4" name="status">
+                  <option value="present">Present</option>
+                  <option value="late">Late</option>
+                  <option value="absent">Absent</option>
+                  <option value="excused">Excused</option>
+                </select>
+                <textarea
+                  className="min-h-24 w-full rounded-2xl border border-slate-200 p-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                  name="notes"
+                  placeholder="Class notes"
+                />
+                <button className="h-11 w-full rounded-full bg-emerald-900 text-sm font-bold text-white">
+                  Save Attendance
+                </button>
+              </form>
+            </SectionCard>
+
+            <SectionCard title="Assign Homework">
+              <form action="/api/teacher/homework" method="post" className="space-y-4">
+                <label className="block">
+                  <span className="text-sm font-bold text-slate-700">Related class</span>
+                  <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="classSessionId">
+                    <option value="">No related class</option>
+                    {data.classes.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.course_title} - {new Date(item.starts_at).toLocaleString()}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-bold text-slate-700">Student</span>
+                  <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="studentId" required>
+                    <option value="">Select student</option>
+                    {data.teacherStudents.map((student) => (
+                      <option key={student.student_id} value={student.student_id}>
+                        {student.student_name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <input
+                  className="h-11 w-full rounded-2xl border border-slate-200 px-4"
+                  name="title"
+                  placeholder="Homework title"
+                  required
+                />
+                <textarea
+                  className="min-h-24 w-full rounded-2xl border border-slate-200 p-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                  name="instructions"
+                  placeholder="Practice instructions"
+                />
+                <input className="h-11 w-full rounded-2xl border border-slate-200 px-4" name="dueAt" type="datetime-local" />
+                <button className="h-11 w-full rounded-full bg-emerald-900 text-sm font-bold text-white">
+                  Assign Homework
+                </button>
+              </form>
+            </SectionCard>
+          </div>
+        ) : null}
+
+        {user.role === "teacher" ? (
+          <div className="mt-8">
+            <SectionCard title="Update Lesson Progress">
+              <form action="/api/teacher/progress" method="post" className="grid gap-4 lg:grid-cols-4">
+                <label className="block">
+                  <span className="text-sm font-bold text-slate-700">Student</span>
+                  <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="studentId" required>
+                    <option value="">Select student</option>
+                    {data.teacherStudents.map((student) => (
+                      <option key={student.student_id} value={student.student_id}>
+                        {student.student_name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-bold text-slate-700">Course</span>
+                  <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="courseId" required>
+                    <option value="">Select course</option>
+                    {data.teacherStudents.filter((student) => student.course_id).map((student) => (
+                      <option key={`${student.student_id}-${student.course_id}`} value={student.course_id ?? ""}>
+                        {student.course_title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block lg:col-span-2">
+                  <span className="text-sm font-bold text-slate-700">Milestone</span>
+                  <input
+                    className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4"
+                    name="milestone"
+                    placeholder="Completed today"
+                    required
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-bold text-slate-700">Completion percent</span>
+                  <input
+                    className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4"
+                    name="completionPercent"
+                    type="number"
+                    min="0"
+                    max="100"
+                    defaultValue="0"
+                  />
+                </label>
+                <label className="block lg:col-span-2">
+                  <span className="text-sm font-bold text-slate-700">Notes</span>
+                  <textarea
+                    className="mt-2 min-h-24 w-full rounded-2xl border border-slate-200 p-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                    name="notes"
+                    placeholder="Strengths and next target"
+                  />
+                </label>
+                <div className="flex items-end">
+                  <button className="h-11 w-full rounded-full bg-emerald-900 text-sm font-bold text-white">
+                    Save Progress
+                  </button>
+                </div>
+              </form>
+            </SectionCard>
+          </div>
+        ) : null}
 
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
           <SectionCard title="Classes">

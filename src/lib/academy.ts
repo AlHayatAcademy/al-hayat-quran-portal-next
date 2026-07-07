@@ -44,6 +44,16 @@ export type AttendanceRow = {
   marked_by_name: string | null;
 };
 
+export type TeacherStudentRow = {
+  student_id: string;
+  student_name: string;
+  student_email: string;
+  parent_name: string | null;
+  course_id: string | null;
+  course_title: string | null;
+  learning_goal: string | null;
+};
+
 export type PaymentRow = {
   id: string;
   amount_cents: number;
@@ -154,12 +164,32 @@ export async function getDashboardData(user: AuthUser) {
     .bind(user.role)
     .all<{ title: string; body: string; audience: string; published_at: string | null }>();
 
+  const teacherStudents =
+    user.role === "teacher"
+      ? await db
+          .prepare(
+            `SELECT student.id AS student_id, student.name AS student_name, student.email AS student_email,
+                    parent.name AS parent_name,
+                    courses.id AS course_id, courses.title AS course_title,
+                    student_profiles.learning_goal
+             FROM student_profiles
+             INNER JOIN users AS student ON student.id = student_profiles.user_id
+             LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id
+             LEFT JOIN courses ON courses.id = student_profiles.course_id
+             WHERE student_profiles.teacher_id = ?
+             ORDER BY student.name ASC`,
+          )
+          .bind(user.id)
+          .all<TeacherStudentRow>()
+      : { results: [] as TeacherStudentRow[] };
+
   return {
     classes: classes.results ?? [],
     homework: homework.results ?? [],
     progress: progress.results ?? [],
     payments: payments.results ?? [],
     announcements: announcements.results ?? [],
+    teacherStudents: teacherStudents.results ?? [],
   };
 }
 
