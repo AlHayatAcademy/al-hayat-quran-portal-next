@@ -1,6 +1,17 @@
 import { SiteHeader } from "@/components/site-shell";
 import { MetricCard, SectionCard } from "@/components/dashboard-widgets";
-import { BookOpen, CalendarDays, ClipboardList, GraduationCap, Headphones, ShieldCheck, Users, Video } from "lucide-react";
+import {
+  BookOpen,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  GraduationCap,
+  Headphones,
+  ShieldCheck,
+  TrendingUp,
+  Users,
+  Video,
+} from "lucide-react";
 import { requireRole } from "@/lib/auth";
 import { getAdminData } from "@/lib/academy";
 
@@ -20,6 +31,8 @@ export default async function AdminPage({
     { title: "Courses", value: String(data.counts.courses ?? 0), icon: BookOpen, tone: "bg-sky-50 text-sky-700" },
     { title: "Classes", value: String(data.counts.classes ?? 0), icon: CalendarDays, tone: "bg-violet-50 text-violet-700" },
     { title: "Homework", value: String(data.counts.homework ?? 0), icon: ClipboardList, tone: "bg-orange-50 text-orange-700" },
+    { title: "Attendance", value: String(data.counts.attendance ?? 0), icon: CheckCircle2, tone: "bg-lime-50 text-lime-700" },
+    { title: "Progress", value: String(data.counts.progress ?? 0), icon: TrendingUp, tone: "bg-cyan-50 text-cyan-700" },
     { title: "Support", value: String(data.counts.tickets ?? 0), icon: Headphones, tone: "bg-indigo-50 text-indigo-700" },
     { title: "Approvals", value: String(data.counts.applications ?? 0), icon: ShieldCheck, tone: "bg-green-50 text-green-700" },
   ];
@@ -198,6 +211,169 @@ export default async function AdminPage({
           </SectionCard>
         </div>
 
+        <div className="mt-8 grid gap-6 xl:grid-cols-3">
+          <SectionCard title="Mark Attendance">
+            <form action="/api/admin/attendance" method="post" className="space-y-4">
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Class</span>
+                <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="classSessionId" required>
+                  <option value="">Select class</option>
+                  {data.classSessions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.course_title} - {new Date(item.starts_at).toLocaleString()}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Student</span>
+                <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="studentId" required>
+                  <option value="">Select student</option>
+                  {data.students.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {student.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <select className="h-11 w-full rounded-2xl border border-slate-200 px-4" name="status">
+                <option value="present">Present</option>
+                <option value="late">Late</option>
+                <option value="absent">Absent</option>
+                <option value="excused">Excused</option>
+              </select>
+              <textarea
+                className="min-h-24 w-full rounded-2xl border border-slate-200 p-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                name="notes"
+                placeholder="Recitation, punctuality, or class notes"
+              />
+              <button className="h-11 w-full rounded-full bg-emerald-900 text-sm font-bold text-white">
+                Save Attendance
+              </button>
+            </form>
+          </SectionCard>
+
+          <SectionCard title="Assign Homework">
+            <form action="/api/admin/homework" method="post" className="space-y-4">
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Related class</span>
+                <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="classSessionId">
+                  <option value="">No related class</option>
+                  {data.classSessions.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.course_title} - {new Date(item.starts_at).toLocaleString()}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-bold text-slate-700">Teacher</span>
+                  <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="teacherId" required>
+                    <option value="">Select</option>
+                    {data.teachers.map((teacher) => (
+                      <option key={teacher.id} value={teacher.id}>
+                        {teacher.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-bold text-slate-700">Student</span>
+                  <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="studentId" required>
+                    <option value="">Select</option>
+                    {data.students.map((student) => (
+                      <option key={student.id} value={student.id}>
+                        {student.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <input
+                className="h-11 w-full rounded-2xl border border-slate-200 px-4"
+                name="title"
+                placeholder="Memorize Surah Al-Fatiha ayah 1-3"
+                required
+              />
+              <textarea
+                className="min-h-24 w-full rounded-2xl border border-slate-200 p-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                name="instructions"
+                placeholder="Practice instructions"
+              />
+              <input className="h-11 w-full rounded-2xl border border-slate-200 px-4" name="dueAt" type="datetime-local" />
+              <button className="h-11 w-full rounded-full bg-emerald-900 text-sm font-bold text-white">
+                Assign Homework
+              </button>
+            </form>
+          </SectionCard>
+
+          <SectionCard title="Lesson Progress">
+            <form action="/api/admin/progress" method="post" className="space-y-4">
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Student</span>
+                <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="studentId" required>
+                  <option value="">Select student</option>
+                  {data.students.map((student) => (
+                    <option key={student.id} value={student.id}>
+                      {student.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <label className="block">
+                  <span className="text-sm font-bold text-slate-700">Teacher</span>
+                  <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="teacherId" required>
+                    <option value="">Select</option>
+                    {data.teachers.map((teacher) => (
+                      <option key={teacher.id} value={teacher.id}>
+                        {teacher.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="text-sm font-bold text-slate-700">Course</span>
+                  <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="courseId" required>
+                    <option value="">Select</option>
+                    {data.courses.map((course) => (
+                      <option key={course.id} value={course.id}>
+                        {course.title}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <input
+                className="h-11 w-full rounded-2xl border border-slate-200 px-4"
+                name="milestone"
+                placeholder="Completed makharij basics"
+                required
+              />
+              <label className="block">
+                <span className="text-sm font-bold text-slate-700">Completion percent</span>
+                <input
+                  className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4"
+                  name="completionPercent"
+                  type="number"
+                  min="0"
+                  max="100"
+                  defaultValue="0"
+                />
+              </label>
+              <textarea
+                className="min-h-24 w-full rounded-2xl border border-slate-200 p-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
+                name="notes"
+                placeholder="Strengths, next target, revision notes"
+              />
+              <button className="h-11 w-full rounded-full bg-emerald-900 text-sm font-bold text-white">
+                Save Progress
+              </button>
+            </form>
+          </SectionCard>
+        </div>
+
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
           <SectionCard title="Courses">
             <div className="space-y-3">
@@ -234,6 +410,57 @@ export default async function AdminPage({
                 </div>
               ))}
               {!data.classSessions.length ? <p className="text-sm text-slate-500">No classes scheduled yet.</p> : null}
+            </div>
+          </SectionCard>
+        </div>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+          <SectionCard title="Recent Attendance">
+            <div className="space-y-3">
+              {data.attendance.map((item) => (
+                <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                  <p className="font-bold text-slate-950">{item.student_name}</p>
+                  <p className="text-sm text-slate-600">{item.class_title}</p>
+                  <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">
+                    {item.status} {item.marked_by_name ? `. ${item.marked_by_name}` : ""}
+                  </p>
+                </div>
+              ))}
+              {!data.attendance.length ? <p className="text-sm text-slate-500">No attendance marked yet.</p> : null}
+            </div>
+          </SectionCard>
+          <SectionCard title="Recent Homework">
+            <div className="space-y-3">
+              {data.homework.map((item) => (
+                <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                  <p className="font-bold text-slate-950">{item.title}</p>
+                  <p className="text-sm text-slate-600">
+                    {item.student_name} {item.due_at ? `. Due ${new Date(item.due_at).toLocaleString()}` : ""}
+                  </p>
+                  <p className="mt-2 text-xs font-bold uppercase tracking-[0.16em] text-emerald-700">{item.status}</p>
+                </div>
+              ))}
+              {!data.homework.length ? <p className="text-sm text-slate-500">No homework assigned yet.</p> : null}
+            </div>
+          </SectionCard>
+          <SectionCard title="Recent Progress">
+            <div className="space-y-3">
+              {data.progress.map((item) => (
+                <div key={item.id} className="rounded-2xl bg-slate-50 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-bold text-slate-950">{item.milestone}</p>
+                      <p className="text-sm text-slate-600">
+                        {item.student_name} . {item.course_title}
+                      </p>
+                    </div>
+                    <span className="rounded-full bg-cyan-100 px-3 py-1 text-xs font-bold text-cyan-800">
+                      {item.completion_percent}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {!data.progress.length ? <p className="text-sm text-slate-500">No lesson progress yet.</p> : null}
             </div>
           </SectionCard>
         </div>

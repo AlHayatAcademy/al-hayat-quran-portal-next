@@ -6,6 +6,9 @@ export type ClassRow = {
   starts_at: string;
   meeting_url: string | null;
   status: string;
+  course_id?: string;
+  teacher_id?: string;
+  student_id?: string | null;
   course_title: string;
   teacher_name: string;
   student_name: string | null;
@@ -17,6 +20,7 @@ export type HomeworkRow = {
   instructions: string | null;
   due_at: string | null;
   status: string;
+  teacher_name?: string;
   student_name: string;
 };
 
@@ -26,6 +30,18 @@ export type ProgressRow = {
   completion_percent: number;
   notes: string | null;
   course_title: string;
+  teacher_name?: string;
+  student_name?: string;
+};
+
+export type AttendanceRow = {
+  id: string;
+  status: string;
+  notes: string | null;
+  created_at: string;
+  class_title: string;
+  student_name: string;
+  marked_by_name: string | null;
 };
 
 export type PaymentRow = {
@@ -158,6 +174,8 @@ export async function getAdminData() {
         (SELECT COUNT(*) FROM courses) AS courses,
         (SELECT COUNT(*) FROM class_sessions) AS classes,
         (SELECT COUNT(*) FROM homework_items) AS homework,
+        (SELECT COUNT(*) FROM attendance_records) AS attendance,
+        (SELECT COUNT(*) FROM lesson_progress) AS progress,
         (SELECT COUNT(*) FROM support_tickets WHERE status = 'open') AS tickets,
         (SELECT COUNT(*) FROM teacher_applications WHERE status = 'pending') AS applications`,
     )
@@ -260,7 +278,8 @@ export async function getAdminData() {
 
   const classSessions = await db
     .prepare(
-      `SELECT class_sessions.id, class_sessions.starts_at, class_sessions.meeting_url, class_sessions.status,
+      `SELECT class_sessions.id, class_sessions.course_id, class_sessions.teacher_id, class_sessions.student_id,
+              class_sessions.starts_at, class_sessions.meeting_url, class_sessions.status,
               courses.title AS course_title,
               teacher.name AS teacher_name,
               student.name AS student_name
@@ -273,6 +292,53 @@ export async function getAdminData() {
     )
     .all<ClassRow>();
 
+  const attendance = await db
+    .prepare(
+      `SELECT attendance_records.id, attendance_records.status, attendance_records.notes,
+              attendance_records.created_at,
+              courses.title || ' - ' || class_sessions.starts_at AS class_title,
+              student.name AS student_name,
+              marker.name AS marked_by_name
+       FROM attendance_records
+       INNER JOIN class_sessions ON class_sessions.id = attendance_records.class_session_id
+       INNER JOIN courses ON courses.id = class_sessions.course_id
+       INNER JOIN users AS student ON student.id = attendance_records.student_id
+       LEFT JOIN users AS marker ON marker.id = attendance_records.marked_by
+       ORDER BY attendance_records.created_at DESC
+       LIMIT 8`,
+    )
+    .all<AttendanceRow>();
+
+  const homework = await db
+    .prepare(
+      `SELECT homework_items.id, homework_items.title, homework_items.instructions,
+              homework_items.due_at, homework_items.status,
+              teacher.name AS teacher_name,
+              student.name AS student_name
+       FROM homework_items
+       INNER JOIN users AS teacher ON teacher.id = homework_items.teacher_id
+       INNER JOIN users AS student ON student.id = homework_items.student_id
+       ORDER BY homework_items.created_at DESC
+       LIMIT 8`,
+    )
+    .all<HomeworkRow>();
+
+  const progress = await db
+    .prepare(
+      `SELECT lesson_progress.id, lesson_progress.milestone, lesson_progress.completion_percent,
+              lesson_progress.notes,
+              courses.title AS course_title,
+              teacher.name AS teacher_name,
+              student.name AS student_name
+       FROM lesson_progress
+       INNER JOIN courses ON courses.id = lesson_progress.course_id
+       INNER JOIN users AS teacher ON teacher.id = lesson_progress.teacher_id
+       INNER JOIN users AS student ON student.id = lesson_progress.student_id
+       ORDER BY lesson_progress.created_at DESC
+       LIMIT 8`,
+    )
+    .all<ProgressRow>();
+
   return {
     counts: counts ?? {},
     applications: applications.results ?? [],
@@ -282,5 +348,8 @@ export async function getAdminData() {
     students: students.results ?? [],
     courses: courses.results ?? [],
     classSessions: classSessions.results ?? [],
+    attendance: attendance.results ?? [],
+    homework: homework.results ?? [],
+    progress: progress.results ?? [],
   };
 }
