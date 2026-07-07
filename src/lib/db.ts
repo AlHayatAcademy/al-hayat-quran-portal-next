@@ -1,25 +1,21 @@
 import { getCloudflareContext } from "@opennextjs/cloudflare";
-
-type CloudflareD1Env = {
-  DB: D1Database;
-  SETUP_TOKEN?: string;
-  APP_URL?: string;
-  EMAIL_FROM?: string;
-  RESEND_API_KEY?: string;
-};
+import { assertEnv, CloudflareD1Env, validateEnv } from "@/lib/env";
+import { logger } from "@/lib/utils/logger";
 
 export async function getCloudflareEnv() {
   const { env } = await getCloudflareContext({ async: true });
-  return env as CloudflareD1Env;
+  const cloudflareEnv = env as Partial<CloudflareD1Env>;
+  const validation = validateEnv(cloudflareEnv);
+
+  if (validation.warnings.length) {
+    logger.debug("Environment validation warnings", { warnings: validation.warnings });
+  }
+
+  return cloudflareEnv as CloudflareD1Env;
 }
 
 export async function getDb() {
   const env = await getCloudflareEnv();
-  const db = (env as CloudflareD1Env).DB;
-
-  if (!db) {
-    throw new Error("Cloudflare D1 binding DB is not available.");
-  }
-
-  return db;
+  assertEnv(env);
+  return env.DB;
 }

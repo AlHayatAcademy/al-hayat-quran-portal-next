@@ -1,4 +1,5 @@
 import { BookOpenCheck, UsersRound } from "lucide-react";
+import { CsrfField } from "@/components/csrf-field";
 import { SiteHeader } from "@/components/site-shell";
 import { courses } from "@/lib/portal-data";
 
@@ -32,6 +33,7 @@ export default async function RegisterPage({
           method="post"
           className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl shadow-emerald-950/10"
         >
+          <CsrfField />
           {params.status === "registered" ? (
             <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
               Registration completed. Please login with the parent email and password.

@@ -162,12 +162,13 @@ export async function getDashboardData(user: AuthUser) {
 
   const classesQuery =
     user.role === "teacher"
-      ? `WHERE class_sessions.teacher_id = ?`
+      ? `WHERE class_sessions.deleted_at IS NULL AND courses.deleted_at IS NULL AND teacher.deleted_at IS NULL AND (student.id IS NULL OR student.deleted_at IS NULL) AND class_sessions.teacher_id = ?`
       : user.role === "student"
-        ? `WHERE class_sessions.student_id = ?`
+        ? `WHERE class_sessions.deleted_at IS NULL AND courses.deleted_at IS NULL AND teacher.deleted_at IS NULL AND class_sessions.student_id = ?`
         : user.role === "parent"
-          ? `WHERE student_profiles.parent_id = ?`
-          : "";
+          ? `WHERE class_sessions.deleted_at IS NULL AND courses.deleted_at IS NULL AND teacher.deleted_at IS NULL AND student_profiles.deleted_at IS NULL AND student_profiles.parent_id = ?`
+          : "WHERE class_sessions.deleted_at IS NULL AND courses.deleted_at IS NULL AND teacher.deleted_at IS NULL";
+  const classesParams = user.role === "admin" ? [] : [user.id];
 
   const classes = await db
     .prepare(
@@ -184,17 +185,18 @@ export async function getDashboardData(user: AuthUser) {
        ORDER BY class_sessions.starts_at ASC
        LIMIT 6`,
     )
-    .bind(...(classesQuery ? [user.id] : []))
+    .bind(...classesParams)
     .all<ClassRow>();
 
   const homeworkQuery =
     user.role === "teacher"
-      ? "WHERE homework_items.teacher_id = ?"
+      ? "WHERE homework_items.deleted_at IS NULL AND teacher.deleted_at IS NULL AND student.deleted_at IS NULL AND homework_items.teacher_id = ?"
       : user.role === "student"
-        ? "WHERE homework_items.student_id = ?"
+        ? "WHERE homework_items.deleted_at IS NULL AND teacher.deleted_at IS NULL AND student.deleted_at IS NULL AND homework_items.student_id = ?"
         : user.role === "parent"
-          ? "WHERE student_profiles.parent_id = ?"
-          : "";
+          ? "WHERE homework_items.deleted_at IS NULL AND teacher.deleted_at IS NULL AND student.deleted_at IS NULL AND student_profiles.deleted_at IS NULL AND student_profiles.parent_id = ?"
+          : "WHERE homework_items.deleted_at IS NULL AND teacher.deleted_at IS NULL AND student.deleted_at IS NULL";
+  const homeworkParams = user.role === "admin" ? [] : [user.id];
 
   const homework = await db
     .prepare(
@@ -210,17 +212,18 @@ export async function getDashboardData(user: AuthUser) {
        ORDER BY homework_items.due_at ASC
        LIMIT 6`,
     )
-    .bind(...(homeworkQuery ? [user.id] : []))
+    .bind(...homeworkParams)
     .all<HomeworkRow>();
 
   const progressQuery =
     user.role === "student"
-      ? "WHERE lesson_progress.student_id = ?"
+      ? "WHERE lesson_progress.deleted_at IS NULL AND courses.deleted_at IS NULL AND teacher.deleted_at IS NULL AND student.deleted_at IS NULL AND lesson_progress.student_id = ?"
       : user.role === "teacher"
-        ? "WHERE lesson_progress.teacher_id = ?"
+        ? "WHERE lesson_progress.deleted_at IS NULL AND courses.deleted_at IS NULL AND teacher.deleted_at IS NULL AND student.deleted_at IS NULL AND lesson_progress.teacher_id = ?"
         : user.role === "parent"
-          ? "WHERE student_profiles.parent_id = ?"
-          : "";
+          ? "WHERE lesson_progress.deleted_at IS NULL AND courses.deleted_at IS NULL AND teacher.deleted_at IS NULL AND student.deleted_at IS NULL AND student_profiles.deleted_at IS NULL AND student_profiles.parent_id = ?"
+          : "WHERE lesson_progress.deleted_at IS NULL AND courses.deleted_at IS NULL AND teacher.deleted_at IS NULL AND student.deleted_at IS NULL";
+  const progressParams = user.role === "admin" ? [] : [user.id];
 
   const progress = await db
     .prepare(
@@ -237,7 +240,7 @@ export async function getDashboardData(user: AuthUser) {
        ORDER BY lesson_progress.created_at DESC
        LIMIT 6`,
     )
-    .bind(...(progressQuery ? [user.id] : []))
+    .bind(...progressParams)
     .all<ProgressRow>();
 
   const payments =
@@ -246,7 +249,8 @@ export async function getDashboardData(user: AuthUser) {
           .prepare(
             `SELECT payments.id, payments.amount_cents, payments.currency, payments.status, payments.paid_at, payments.notes
              FROM payments
-             WHERE payments.parent_id = ? OR payments.student_id = ?
+             WHERE payments.deleted_at IS NULL
+               AND (payments.parent_id = ? OR payments.student_id = ?)
              ORDER BY payments.created_at DESC
              LIMIT 6`,
           )
@@ -258,7 +262,8 @@ export async function getDashboardData(user: AuthUser) {
     .prepare(
       `SELECT title, body, audience, published_at
        FROM announcements
-       WHERE audience = 'all' OR audience = ?
+       WHERE announcements.deleted_at IS NULL
+         AND (audience = 'all' OR audience = ?)
        ORDER BY published_at DESC
        LIMIT 3`,
     )
@@ -278,6 +283,10 @@ export async function getDashboardData(user: AuthUser) {
              LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id
              LEFT JOIN courses ON courses.id = student_profiles.course_id
              WHERE student_profiles.teacher_id = ?
+               AND student_profiles.deleted_at IS NULL
+               AND student.deleted_at IS NULL
+               AND (parent.id IS NULL OR parent.deleted_at IS NULL)
+               AND (courses.id IS NULL OR courses.deleted_at IS NULL)
              ORDER BY student.name ASC`,
           )
           .bind(user.id)
@@ -286,11 +295,11 @@ export async function getDashboardData(user: AuthUser) {
 
   const attendanceQuery =
     user.role === "student"
-      ? "WHERE attendance_records.student_id = ?"
+      ? "WHERE attendance_records.deleted_at IS NULL AND class_sessions.deleted_at IS NULL AND courses.deleted_at IS NULL AND student.deleted_at IS NULL AND attendance_records.student_id = ?"
       : user.role === "teacher"
-        ? "WHERE class_sessions.teacher_id = ?"
+        ? "WHERE attendance_records.deleted_at IS NULL AND class_sessions.deleted_at IS NULL AND courses.deleted_at IS NULL AND student.deleted_at IS NULL AND class_sessions.teacher_id = ?"
         : user.role === "parent"
-          ? "WHERE student_profiles.parent_id = ?"
+          ? "WHERE attendance_records.deleted_at IS NULL AND class_sessions.deleted_at IS NULL AND courses.deleted_at IS NULL AND student.deleted_at IS NULL AND student_profiles.deleted_at IS NULL AND student_profiles.parent_id = ?"
           : "";
 
   const attendance = attendanceQuery
@@ -328,6 +337,10 @@ export async function getDashboardData(user: AuthUser) {
              LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id
              LEFT JOIN courses ON courses.id = student_profiles.course_id
              WHERE student_profiles.parent_id = ?
+               AND student_profiles.deleted_at IS NULL
+               AND student.deleted_at IS NULL
+               AND (teacher.id IS NULL OR teacher.deleted_at IS NULL)
+               AND (courses.id IS NULL OR courses.deleted_at IS NULL)
              ORDER BY student.name ASC`,
           )
           .bind(user.id)
@@ -372,6 +385,7 @@ export async function getAdminPeopleData({
                 SELECT COUNT(*)
                 FROM class_sessions
                 WHERE users.role = 'student'
+                  AND class_sessions.deleted_at IS NULL
                   AND (
                     class_sessions.student_id = users.id
                     OR (
@@ -388,10 +402,10 @@ export async function getAdminPeopleData({
                 ELSE 'sent'
               END AS invitation_status
        FROM users
-       LEFT JOIN student_profiles ON student_profiles.user_id = users.id
-       LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id
-       LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id
-       LEFT JOIN courses ON courses.id = student_profiles.course_id
+       LEFT JOIN student_profiles ON student_profiles.user_id = users.id AND student_profiles.deleted_at IS NULL
+       LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id AND parent.deleted_at IS NULL
+       LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id AND teacher.deleted_at IS NULL
+       LEFT JOIN courses ON courses.id = student_profiles.course_id AND courses.deleted_at IS NULL
        LEFT JOIN invitation_tokens ON invitation_tokens.user_id = users.id
         AND invitation_tokens.purpose = 'password_setup'
         AND invitation_tokens.created_at = (
@@ -401,6 +415,7 @@ export async function getAdminPeopleData({
             AND latest_invite.purpose = 'password_setup'
         )
        WHERE users.role IN ('teacher', 'student', 'parent')
+         AND users.deleted_at IS NULL
        ORDER BY
         CASE users.role WHEN 'student' THEN 0 WHEN 'parent' THEN 1 ELSE 2 END,
         users.name ASC
@@ -433,24 +448,26 @@ export async function getAdminData() {
   const counts = await db
     .prepare(
       `SELECT
-        (SELECT COUNT(*) FROM users WHERE role = 'student') AS students,
-        (SELECT COUNT(*) FROM users WHERE role = 'teacher') AS teachers,
-        (SELECT COUNT(*) FROM courses) AS courses,
-        (SELECT COUNT(*) FROM class_sessions) AS classes,
-        (SELECT COUNT(*) FROM homework_items) AS homework,
-        (SELECT COUNT(*) FROM attendance_records) AS attendance,
-        (SELECT COUNT(*) FROM lesson_progress) AS progress,
-        (SELECT COUNT(*) FROM support_tickets WHERE status = 'open') AS tickets,
+        (SELECT COUNT(*) FROM users WHERE role = 'student' AND deleted_at IS NULL) AS students,
+        (SELECT COUNT(*) FROM users WHERE role = 'teacher' AND deleted_at IS NULL) AS teachers,
+        (SELECT COUNT(*) FROM courses WHERE deleted_at IS NULL) AS courses,
+        (SELECT COUNT(*) FROM class_sessions WHERE deleted_at IS NULL) AS classes,
+        (SELECT COUNT(*) FROM homework_items WHERE deleted_at IS NULL) AS homework,
+        (SELECT COUNT(*) FROM attendance_records WHERE deleted_at IS NULL) AS attendance,
+        (SELECT COUNT(*) FROM lesson_progress WHERE deleted_at IS NULL) AS progress,
+        (SELECT COUNT(*) FROM support_tickets WHERE status = 'open' AND deleted_at IS NULL) AS tickets,
         (
           SELECT COUNT(*)
           FROM teacher_applications
           INNER JOIN (
             SELECT lower(email) AS email_key, MAX(created_at) AS latest_created_at
             FROM teacher_applications
+            WHERE deleted_at IS NULL
             GROUP BY lower(email)
           ) AS latest_application ON latest_application.email_key = lower(teacher_applications.email)
             AND latest_application.latest_created_at = teacher_applications.created_at
           WHERE teacher_applications.status = 'pending'
+            AND teacher_applications.deleted_at IS NULL
         ) AS applications`,
     )
     .first<Record<string, number>>();
@@ -463,9 +480,11 @@ export async function getAdminData() {
        INNER JOIN (
         SELECT lower(email) AS email_key, MAX(created_at) AS latest_created_at
         FROM teacher_applications
+        WHERE deleted_at IS NULL
         GROUP BY lower(email)
        ) AS latest_application ON latest_application.email_key = lower(teacher_applications.email)
         AND latest_application.latest_created_at = teacher_applications.created_at
+       WHERE teacher_applications.deleted_at IS NULL
        ORDER BY teacher_applications.created_at DESC
        LIMIT 6`,
     )
@@ -475,6 +494,7 @@ export async function getAdminData() {
     .prepare(
       `SELECT id, name, email, role, status, created_at
        FROM users
+       WHERE deleted_at IS NULL
        ORDER BY created_at DESC
        LIMIT 8`,
     )
@@ -485,6 +505,7 @@ export async function getAdminData() {
       `SELECT id, name, email, role, status
        FROM users
        WHERE status = 'active'
+         AND deleted_at IS NULL
        ORDER BY role ASC, name ASC`,
     )
     .all<{ id: string; name: string; email: string; role: string; status: string }>();
@@ -498,9 +519,11 @@ export async function getAdminData() {
               student_profiles.learning_goal, student_profiles.created_at
        FROM student_profiles
        INNER JOIN users AS student ON student.id = student_profiles.user_id
-       LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id
-       LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id
-       LEFT JOIN courses ON courses.id = student_profiles.course_id
+       LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id AND parent.deleted_at IS NULL
+       LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id AND teacher.deleted_at IS NULL
+       LEFT JOIN courses ON courses.id = student_profiles.course_id AND courses.deleted_at IS NULL
+       WHERE student_profiles.deleted_at IS NULL
+         AND student.deleted_at IS NULL
        ORDER BY student_profiles.created_at DESC
        LIMIT 8`,
     )
@@ -523,6 +546,7 @@ export async function getAdminData() {
       `SELECT id, name, email, status
        FROM users
        WHERE role = 'teacher'
+         AND deleted_at IS NULL
        ORDER BY name ASC`,
     )
     .all<{ id: string; name: string; email: string; status: string }>();
@@ -534,11 +558,12 @@ export async function getAdminData() {
               teacher.name AS teacher_name,
               courses.title AS course_title
        FROM users
-       LEFT JOIN student_profiles ON student_profiles.user_id = users.id
-       LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id
-       LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id
-       LEFT JOIN courses ON courses.id = student_profiles.course_id
+       LEFT JOIN student_profiles ON student_profiles.user_id = users.id AND student_profiles.deleted_at IS NULL
+       LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id AND parent.deleted_at IS NULL
+       LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id AND teacher.deleted_at IS NULL
+       LEFT JOIN courses ON courses.id = student_profiles.course_id AND courses.deleted_at IS NULL
        WHERE users.role = 'student'
+         AND users.deleted_at IS NULL
        ORDER BY users.name ASC`,
     )
     .all<{
@@ -555,6 +580,7 @@ export async function getAdminData() {
     .prepare(
       `SELECT id, title, description, level, status, created_at
        FROM courses
+       WHERE deleted_at IS NULL
        ORDER BY title ASC`,
     )
     .all<{
@@ -577,6 +603,10 @@ export async function getAdminData() {
        INNER JOIN courses ON courses.id = class_sessions.course_id
        INNER JOIN users AS teacher ON teacher.id = class_sessions.teacher_id
        LEFT JOIN users AS student ON student.id = class_sessions.student_id
+       WHERE class_sessions.deleted_at IS NULL
+         AND courses.deleted_at IS NULL
+         AND teacher.deleted_at IS NULL
+         AND (student.id IS NULL OR student.deleted_at IS NULL)
        ORDER BY class_sessions.starts_at DESC
        LIMIT 10`,
     )
@@ -594,6 +624,10 @@ export async function getAdminData() {
        INNER JOIN courses ON courses.id = class_sessions.course_id
        INNER JOIN users AS student ON student.id = attendance_records.student_id
        LEFT JOIN users AS marker ON marker.id = attendance_records.marked_by
+       WHERE attendance_records.deleted_at IS NULL
+         AND class_sessions.deleted_at IS NULL
+         AND courses.deleted_at IS NULL
+         AND student.deleted_at IS NULL
        ORDER BY attendance_records.created_at DESC
        LIMIT 8`,
     )
@@ -608,6 +642,9 @@ export async function getAdminData() {
        FROM homework_items
        INNER JOIN users AS teacher ON teacher.id = homework_items.teacher_id
        INNER JOIN users AS student ON student.id = homework_items.student_id
+       WHERE homework_items.deleted_at IS NULL
+         AND teacher.deleted_at IS NULL
+         AND student.deleted_at IS NULL
        ORDER BY homework_items.created_at DESC
        LIMIT 8`,
     )
@@ -624,6 +661,10 @@ export async function getAdminData() {
        INNER JOIN courses ON courses.id = lesson_progress.course_id
        INNER JOIN users AS teacher ON teacher.id = lesson_progress.teacher_id
        INNER JOIN users AS student ON student.id = lesson_progress.student_id
+       WHERE lesson_progress.deleted_at IS NULL
+         AND courses.deleted_at IS NULL
+         AND teacher.deleted_at IS NULL
+         AND student.deleted_at IS NULL
        ORDER BY lesson_progress.created_at DESC
        LIMIT 8`,
     )
@@ -648,10 +689,11 @@ export async function getAdminData() {
        INNER JOIN (
         SELECT lower(email) AS email_key, MAX(created_at) AS latest_created_at
         FROM teacher_applications
+        WHERE deleted_at IS NULL
         GROUP BY lower(email)
        ) AS latest_application ON latest_application.email_key = lower(teacher_applications.email)
         AND latest_application.latest_created_at = teacher_applications.created_at
-       LEFT JOIN users ON lower(users.email) = lower(teacher_applications.email) AND users.role = 'teacher'
+       LEFT JOIN users ON lower(users.email) = lower(teacher_applications.email) AND users.role = 'teacher' AND users.deleted_at IS NULL
        LEFT JOIN invitation_tokens ON invitation_tokens.user_id = users.id
         AND invitation_tokens.purpose = 'password_setup'
         AND invitation_tokens.created_at = (
@@ -660,6 +702,7 @@ export async function getAdminData() {
           WHERE latest_invite.user_id = users.id
             AND latest_invite.purpose = 'password_setup'
         )
+       WHERE teacher_applications.deleted_at IS NULL
        ORDER BY
         CASE teacher_applications.status WHEN 'pending' THEN 0 WHEN 'approved' THEN 1 ELSE 2 END,
         teacher_applications.created_at DESC
@@ -691,6 +734,7 @@ export async function getAdminData() {
             AND latest_invite.purpose = 'password_setup'
         )
        WHERE users.role = 'teacher'
+         AND users.deleted_at IS NULL
        ORDER BY
         CASE
           WHEN invitation_tokens.id IS NULL THEN 0
@@ -726,6 +770,7 @@ export async function getAdminData() {
             AND latest_invite.purpose = 'password_setup'
         )
        WHERE users.role = 'parent'
+         AND users.deleted_at IS NULL
        ORDER BY
         CASE
           WHEN invitation_tokens.id IS NULL THEN 0
@@ -752,21 +797,27 @@ export async function getAdminData() {
               (
                 SELECT COUNT(*)
                 FROM class_sessions
-                WHERE class_sessions.student_id = users.id
-                  OR (
-                    class_sessions.student_id IS NULL
-                    AND class_sessions.teacher_id = student_profiles.teacher_id
-                    AND class_sessions.course_id = student_profiles.course_id
+                WHERE class_sessions.deleted_at IS NULL
+                  AND (
+                    class_sessions.student_id = users.id
+                    OR (
+                      class_sessions.student_id IS NULL
+                      AND class_sessions.teacher_id = student_profiles.teacher_id
+                      AND class_sessions.course_id = student_profiles.course_id
+                    )
                   )
               ) AS scheduled_classes,
               (
                 SELECT class_sessions.status
                 FROM class_sessions
-                WHERE class_sessions.student_id = users.id
-                  OR (
-                    class_sessions.student_id IS NULL
-                    AND class_sessions.teacher_id = student_profiles.teacher_id
-                    AND class_sessions.course_id = student_profiles.course_id
+                WHERE class_sessions.deleted_at IS NULL
+                  AND (
+                    class_sessions.student_id = users.id
+                    OR (
+                      class_sessions.student_id IS NULL
+                      AND class_sessions.teacher_id = student_profiles.teacher_id
+                      AND class_sessions.course_id = student_profiles.course_id
+                    )
                   )
                 ORDER BY class_sessions.starts_at DESC
                 LIMIT 1
@@ -778,10 +829,10 @@ export async function getAdminData() {
                 ELSE 'sent'
               END AS invitation_status
        FROM users
-       LEFT JOIN student_profiles ON student_profiles.user_id = users.id
-       LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id
-       LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id
-       LEFT JOIN courses ON courses.id = student_profiles.course_id
+       LEFT JOIN student_profiles ON student_profiles.user_id = users.id AND student_profiles.deleted_at IS NULL
+       LEFT JOIN users AS parent ON parent.id = student_profiles.parent_id AND parent.deleted_at IS NULL
+       LEFT JOIN users AS teacher ON teacher.id = student_profiles.teacher_id AND teacher.deleted_at IS NULL
+       LEFT JOIN courses ON courses.id = student_profiles.course_id AND courses.deleted_at IS NULL
        LEFT JOIN invitation_tokens ON invitation_tokens.user_id = users.id
         AND invitation_tokens.purpose = 'password_setup'
         AND invitation_tokens.created_at = (
@@ -791,16 +842,20 @@ export async function getAdminData() {
             AND latest_invite.purpose = 'password_setup'
         )
        WHERE users.role = 'student'
+         AND users.deleted_at IS NULL
        ORDER BY
         CASE
           WHEN student_profiles.teacher_id IS NULL OR student_profiles.course_id IS NULL THEN 0
           WHEN NOT EXISTS (
             SELECT 1 FROM class_sessions
-            WHERE class_sessions.student_id = users.id
-              OR (
-                class_sessions.student_id IS NULL
-                AND class_sessions.teacher_id = student_profiles.teacher_id
-                AND class_sessions.course_id = student_profiles.course_id
+            WHERE class_sessions.deleted_at IS NULL
+              AND (
+                class_sessions.student_id = users.id
+                OR (
+                  class_sessions.student_id IS NULL
+                  AND class_sessions.teacher_id = student_profiles.teacher_id
+                  AND class_sessions.course_id = student_profiles.course_id
+                )
               )
           ) THEN 1
           WHEN invitation_tokens.id IS NULL THEN 2

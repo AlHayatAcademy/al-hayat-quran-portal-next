@@ -1,4 +1,5 @@
 import { AdminNav } from "@/components/admin-nav";
+import { CsrfField } from "@/components/csrf-field";
 import { requireRole } from "@/lib/auth";
 import { getAdminPeopleData } from "@/lib/academy";
 import { Mail, Search } from "lucide-react";
@@ -43,6 +44,7 @@ function SetupLinkForm({ userId, status }: { userId: string; status: string }) {
 
   return (
     <form action="/api/admin/invitations" method="post">
+      <CsrfField />
       <input type="hidden" name="userId" value={userId} />
       <button className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-emerald-950">
         <Mail className="h-4 w-4" />

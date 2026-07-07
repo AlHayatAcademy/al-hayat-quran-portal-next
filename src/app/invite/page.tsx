@@ -1,4 +1,5 @@
 import { KeyRound } from "lucide-react";
+import { CsrfField } from "@/components/csrf-field";
 import { SiteHeader } from "@/components/site-shell";
 import { hashToken } from "@/lib/auth";
 import { getDb } from "@/lib/db";
@@ -32,6 +33,7 @@ export default async function InvitePage({
            AND invitation_tokens.used_at IS NULL
            AND invitation_tokens.expires_at > ?
            AND users.status = 'active'
+           AND users.deleted_at IS NULL
          LIMIT 1`,
       )
       .bind(await hashToken(token), new Date().toISOString())
@@ -68,6 +70,7 @@ export default async function InvitePage({
                 </p>
               </div>
               <form action="/api/invite" method="post" className="mt-6 space-y-4">
+                <CsrfField />
                 <input type="hidden" name="token" value={token} />
                 <label className="block">
                   <span className="text-sm font-bold text-slate-700">New password</span>

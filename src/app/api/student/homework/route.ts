@@ -1,30 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/auth";
-import { getDb } from "@/lib/db";
+import { requireApiRole } from "@/lib/auth";
+import { findStudentHomework, findStudentHomeworkList, updateHomeworkStatus } from "@/lib/db/homework";
+import { logAudit } from "@/lib/utils/audit";
+import { requireCsrfToken } from "@/lib/utils/csrf";
+import { createApiResponse, handleError } from "@/lib/utils/error-handler";
+import { parseRequest, studentHomeworkSchema } from "@/lib/utils/schemas";
+
+/**
+ * GET /api/student/homework
+ * @returns {ApiResponse<{ homework: DbHomeworkItem[] }>}
+ */
+export async function GET() {
+  try {
+    const student = await requireApiRole("student");
+    const homework = await findStudentHomeworkList(student.id);
+
+    return createApiResponse({ homework });
+  } catch (error) {
+    return handleError(error);
+  }
+}
 
 export async function POST(request: NextRequest) {
-  const student = await requireRole("student");
-  const formData = await request.formData();
-  const homeworkId = String(formData.get("homeworkId") ?? "").trim();
+  try {
+    const student = await requireApiRole("student");
+    const formData = await request.formData();
+    await requireCsrfToken(formData);
+    const parsed = await studentHomeworkSchema.safeParseAsync({
+      homeworkId: formData.get("homeworkId"),
+    });
 
-  if (!homeworkId) {
-    return NextResponse.redirect(new URL("/dashboard?error=homework", request.url));
+    if (!parsed.success) {
+      return NextResponse.redirect(new URL("/dashboard?error=homework", request.url));
+    }
+
+    const { homeworkId } = await parseRequest(parsed.data, studentHomeworkSchema);
+
+    const homework = await findStudentHomework(student.id, homeworkId);
+
+    if (!homework || homework.status === "reviewed") {
+      return NextResponse.redirect(new URL("/dashboard?error=homework", request.url));
+    }
+
+    await updateHomeworkStatus(homeworkId, "completed");
+    await logAudit(student.id, "update", "homework_items", homeworkId, { status: "completed" });
+
+    return NextResponse.redirect(new URL("/dashboard?status=homework-completed", request.url));
+  } catch (error) {
+    return handleError(error);
   }
-
-  const db = await getDb();
-  const homework = await db
-    .prepare("SELECT id, status FROM homework_items WHERE id = ? AND student_id = ? LIMIT 1")
-    .bind(homeworkId, student.id)
-    .first<{ id: string; status: string }>();
-
-  if (!homework || homework.status === "reviewed") {
-    return NextResponse.redirect(new URL("/dashboard?error=homework", request.url));
-  }
-
-  await db
-    .prepare("UPDATE homework_items SET status = 'completed' WHERE id = ? AND student_id = ?")
-    .bind(homeworkId, student.id)
-    .run();
-
-  return NextResponse.redirect(new URL("/dashboard?status=homework-completed", request.url));
 }

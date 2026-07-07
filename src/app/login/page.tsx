@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { LockKeyhole, Mail } from "lucide-react";
+import { CsrfField } from "@/components/csrf-field";
 import { SiteHeader } from "@/components/site-shell";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +28,7 @@ export default async function LoginPage({
           method="post"
           className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl shadow-emerald-950/10"
         >
+          <CsrfField />
           {params.error ? (
             <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
               {params.error === "missing"
@@ -46,6 +49,9 @@ export default async function LoginPage({
           <button className="mt-6 flex h-12 w-full items-center justify-center rounded-full bg-emerald-900 text-sm font-bold text-white hover:bg-emerald-800">
             Sign in
           </button>
+          <Link href="/forgot-password" className="mt-4 block text-center text-sm font-bold text-emerald-900">
+            Forgot password?
+          </Link>
         </form>
       </section>
     </main>

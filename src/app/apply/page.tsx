@@ -1,4 +1,5 @@
 import { GraduationCap, ShieldCheck } from "lucide-react";
+import { CsrfField } from "@/components/csrf-field";
 import { SiteHeader } from "@/components/site-shell";
 
 export const dynamic = "force-dynamic";
@@ -31,6 +32,7 @@ export default async function ApplyPage({
           method="post"
           className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl shadow-emerald-950/10"
         >
+          <CsrfField />
           {params.status === "submitted" ? (
             <div className="mb-5 rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-700">
               Application submitted. Admin will review and contact you.

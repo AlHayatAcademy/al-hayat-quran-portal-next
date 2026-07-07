@@ -1,5 +1,6 @@
 import { ShieldCheck } from "lucide-react";
 import { redirect } from "next/navigation";
+import { CsrfField } from "@/components/csrf-field";
 import { SiteHeader } from "@/components/site-shell";
 import { getDb } from "@/lib/db";
 
@@ -11,7 +12,9 @@ export default async function SetupPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const db = await getDb();
-  const admin = await db.prepare("SELECT id FROM users WHERE role = 'admin' LIMIT 1").first<{ id: string }>();
+  const admin = await db
+    .prepare("SELECT id FROM users WHERE role = 'admin' AND deleted_at IS NULL LIMIT 1")
+    .first<{ id: string }>();
   const params = await searchParams;
 
   if (admin) {
@@ -31,6 +34,7 @@ export default async function SetupPage({
           </p>
         </div>
         <form action="/api/setup" method="post" className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-xl">
+          <CsrfField />
           {params.error ? (
             <div className="mb-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm font-semibold text-red-700">
               {params.error === "token"

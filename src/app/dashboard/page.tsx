@@ -10,6 +10,7 @@ import {
   Users,
   Video,
 } from "lucide-react";
+import { CsrfField } from "@/components/csrf-field";
 import { SiteHeader } from "@/components/site-shell";
 import { MetricCard, SectionCard } from "@/components/dashboard-widgets";
 import { requireUser } from "@/lib/auth";
@@ -81,6 +82,7 @@ export default async function DashboardPage({
           <h1 className="mt-3 text-4xl font-black">{headline}</h1>
           <p className="mt-3 max-w-3xl text-white/75">Welcome, {user.name}. {intro}</p>
           <form action="/api/auth/logout" method="post" className="mt-5">
+            <CsrfField />
             <button className="rounded-full bg-white px-4 py-2 text-sm font-bold text-emerald-950">Logout</button>
           </form>
         </div>
@@ -123,6 +125,7 @@ export default async function DashboardPage({
 
             <SectionCard title="Mark Attendance">
               <form action="/api/teacher/attendance" method="post" className="space-y-4">
+                <CsrfField />
                 <label className="block">
                   <span className="text-sm font-bold text-slate-700">Class</span>
                   <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="classSessionId" required>
@@ -153,6 +156,7 @@ export default async function DashboardPage({
 
             <SectionCard title="Assign Homework">
               <form action="/api/teacher/homework" method="post" className="space-y-4">
+                <CsrfField />
                 <label className="block">
                   <span className="text-sm font-bold text-slate-700">Related class</span>
                   <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="classSessionId">
@@ -199,6 +203,7 @@ export default async function DashboardPage({
           <div className="mt-8">
             <SectionCard title="Update Lesson Progress">
               <form action="/api/teacher/progress" method="post" className="grid gap-4 lg:grid-cols-4">
+                <CsrfField />
                 <label className="block">
                   <span className="text-sm font-bold text-slate-700">Student</span>
                   <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="studentId" required>
@@ -294,6 +299,7 @@ export default async function DashboardPage({
                     ) : null}
                     {item.status !== "completed" && item.status !== "reviewed" ? (
                       <form action="/api/student/homework" method="post" className="mt-4">
+                        <CsrfField />
                         <input type="hidden" name="homeworkId" value={item.id} />
                         <button className="h-10 rounded-full bg-emerald-900 px-4 text-sm font-bold text-white">
                           Mark Complete
@@ -502,6 +508,7 @@ export default async function DashboardPage({
                       ) : null}
                       {user.role === "teacher" && item.status === "completed" ? (
                         <form action="/api/teacher/homework-review" method="post" className="mt-4 space-y-3">
+                          <CsrfField />
                           <input type="hidden" name="homeworkId" value={item.id} />
                           <textarea
                             className="min-h-20 w-full rounded-2xl border border-slate-200 p-3 text-sm outline-none focus:ring-4 focus:ring-emerald-900/10"
@@ -536,6 +543,7 @@ export default async function DashboardPage({
         <div className="mt-8">
           <SectionCard title="Change Password">
             <form action="/api/account/password" method="post" className="grid gap-4 lg:grid-cols-4">
+              <CsrfField />
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">Current password</span>
                 <input

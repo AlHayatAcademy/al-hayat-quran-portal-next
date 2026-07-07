@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { getDb } from "@/lib/db";
+import { AuthError, UnauthorizedError } from "@/lib/utils/error-handler";
 
 export type UserRole = "admin" | "teacher" | "student" | "parent";
 
@@ -155,6 +156,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
        WHERE sessions.token_hash = ?
          AND sessions.expires_at > ?
          AND users.status = 'active'
+         AND users.deleted_at IS NULL
        LIMIT 1`,
     )
     .bind(await hashToken(token), new Date().toISOString())
@@ -178,6 +180,20 @@ export async function requireRole(role: UserRole) {
 
   if (user.role !== role) {
     redirect("/dashboard");
+  }
+
+  return user;
+}
+
+export async function requireApiRole(role: UserRole) {
+  const user = await getCurrentUser();
+
+  if (!user) {
+    throw new AuthError();
+  }
+
+  if (user.role !== role) {
+    throw new UnauthorizedError();
   }
 
   return user;

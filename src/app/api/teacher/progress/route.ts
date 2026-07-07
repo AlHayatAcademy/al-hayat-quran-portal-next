@@ -1,41 +1,99 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireRole } from "@/lib/auth";
+import { requireApiRole } from "@/lib/auth";
 import { getDb } from "@/lib/db";
+import { logAudit } from "@/lib/utils/audit";
+import { requireCsrfToken } from "@/lib/utils/csrf";
+import { createApiResponse, handleError } from "@/lib/utils/error-handler";
+import { parseRequest, progressUpdateSchema } from "@/lib/utils/schemas";
+
+/**
+ * GET /api/teacher/progress
+ * @returns {ApiResponse<{ progress: unknown[] }>}
+ */
+export async function GET() {
+  try {
+    const teacher = await requireApiRole("teacher");
+    const db = await getDb();
+    const result = await db
+      .prepare(
+        `SELECT progress.id, progress.student_id, progress.course_id, progress.teacher_id,
+                progress.milestone, progress.completion_percent, progress.notes,
+                progress.updated_at, progress.created_at,
+                students.name AS student_name,
+                courses.title AS course_title
+         FROM lesson_progress progress
+         INNER JOIN student_profiles sp
+           ON sp.user_id = progress.student_id
+          AND sp.teacher_id = ?
+          AND sp.course_id = progress.course_id
+          AND sp.deleted_at IS NULL
+         INNER JOIN users students
+           ON students.id = progress.student_id
+          AND students.deleted_at IS NULL
+         INNER JOIN courses
+           ON courses.id = progress.course_id
+          AND courses.deleted_at IS NULL
+         WHERE progress.teacher_id = ?
+           AND progress.deleted_at IS NULL
+         ORDER BY progress.created_at DESC`,
+      )
+      .bind(teacher.id, teacher.id)
+      .all();
+
+    return createApiResponse({ progress: result.results ?? [] });
+  } catch (error) {
+    return handleError(error);
+  }
+}
 
 export async function POST(request: NextRequest) {
-  const teacher = await requireRole("teacher");
+  try {
+    const teacher = await requireApiRole("teacher");
 
-  const formData = await request.formData();
-  const studentId = String(formData.get("studentId") ?? "").trim();
-  const courseId = String(formData.get("courseId") ?? "").trim();
-  const milestone = String(formData.get("milestone") ?? "").trim();
-  const completionPercentValue = Number(formData.get("completionPercent") ?? 0);
-  const notes = String(formData.get("notes") ?? "").trim();
+    const formData = await request.formData();
+    await requireCsrfToken(formData);
+    const parsed = await progressUpdateSchema.safeParseAsync({
+      studentId: formData.get("studentId"),
+      courseId: formData.get("courseId"),
+      milestone: formData.get("milestone"),
+      completionPercent: formData.get("completionPercent"),
+      notes: formData.get("notes"),
+    });
 
-  if (!studentId || !courseId || !milestone || Number.isNaN(completionPercentValue)) {
-    return NextResponse.redirect(new URL("/dashboard?error=progress", request.url));
+    if (!parsed.success) {
+      return NextResponse.redirect(new URL("/dashboard?error=progress", request.url));
+    }
+
+    const { studentId, courseId, milestone, completionPercent, notes } = await parseRequest(
+      parsed.data,
+      progressUpdateSchema,
+    );
+
+    const db = await getDb();
+    const assignedStudent = await db
+      .prepare(
+        "SELECT id FROM student_profiles WHERE user_id = ? AND teacher_id = ? AND course_id = ? AND deleted_at IS NULL LIMIT 1",
+      )
+      .bind(studentId, teacher.id, courseId)
+      .first<{ id: string }>();
+
+    if (!assignedStudent) {
+      return NextResponse.redirect(new URL("/dashboard?error=progress", request.url));
+    }
+
+    const progressId = crypto.randomUUID();
+    await db
+      .prepare(
+        `INSERT INTO lesson_progress
+          (id, student_id, course_id, teacher_id, milestone, completion_percent, notes)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      )
+      .bind(progressId, studentId, courseId, teacher.id, milestone, Math.round(completionPercent), notes || null)
+      .run();
+    await logAudit(teacher.id, "create", "lesson_progress", progressId, { studentId, courseId });
+
+    return NextResponse.redirect(new URL("/dashboard?status=progress-saved", request.url));
+  } catch (error) {
+    return handleError(error);
   }
-
-  const db = await getDb();
-  const assignedStudent = await db
-    .prepare("SELECT id FROM student_profiles WHERE user_id = ? AND teacher_id = ? AND course_id = ? LIMIT 1")
-    .bind(studentId, teacher.id, courseId)
-    .first<{ id: string }>();
-
-  if (!assignedStudent) {
-    return NextResponse.redirect(new URL("/dashboard?error=progress", request.url));
-  }
-
-  const completionPercent = Math.min(100, Math.max(0, Math.round(completionPercentValue)));
-
-  await db
-    .prepare(
-      `INSERT INTO lesson_progress
-        (id, student_id, course_id, teacher_id, milestone, completion_percent, notes)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    )
-    .bind(crypto.randomUUID(), studentId, courseId, teacher.id, milestone, completionPercent, notes || null)
-    .run();
-
-  return NextResponse.redirect(new URL("/dashboard?status=progress-saved", request.url));
 }

@@ -1,5 +1,6 @@
 import { MetricCard, SectionCard } from "@/components/dashboard-widgets";
 import { AdminNav } from "@/components/admin-nav";
+import { CsrfField } from "@/components/csrf-field";
 import {
   BookOpen,
   CalendarDays,
@@ -52,6 +53,14 @@ function inviteActionLabel(status: string) {
   return "Send setup link";
 }
 
+function emailStatusMessage(status?: string) {
+  if (status === "sent") return "Email sent automatically.";
+  if (status === "email-provider-error") {
+    return "Email delivery failed at the provider, so copy this link and send it manually.";
+  }
+  return "Email is not configured yet, so copy this link and send it manually.";
+}
+
 function QueueFooter({ shown, total }: { shown: number; total: number }) {
   if (total <= shown) return null;
 
@@ -99,6 +108,7 @@ function SetupLinkForm({ userId, status }: { userId: string; status: string }) {
 
   return (
     <form action="/api/admin/invitations" method="post" className="mt-4 flex flex-wrap gap-2">
+      <CsrfField />
       <input type="hidden" name="userId" value={userId} />
       <button className="inline-flex items-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-emerald-950">
         <Mail className="h-4 w-4" />
@@ -169,6 +179,7 @@ export default async function AdminPage({
             progress, homework, payments, support tickets, announcements, and teacher approvals.
           </p>
           <form action="/api/auth/logout" method="post">
+            <CsrfField />
             <button className="mt-3 rounded-full border border-emerald-900/20 bg-white px-4 py-2 text-sm font-bold text-emerald-950">
               Logout
             </button>
@@ -197,11 +208,7 @@ export default async function AdminPage({
         {params.invite ? (
           <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-900">
             <p>Password setup link created{params.email ? ` for ${params.email}` : ""}.</p>
-            <p className="mt-1">
-              {params.emailStatus === "sent"
-                ? "Email sent automatically."
-                : "Email is not configured yet, so copy this link and send it manually."}
-            </p>
+            <p className="mt-1">{emailStatusMessage(params.emailStatus)}</p>
             <p className="mt-2 break-all rounded-xl bg-white p-3 font-mono text-xs text-slate-700">
               https://learn-quran.drimranhayat.com/invite?token={params.invite}
             </p>
@@ -275,6 +282,7 @@ export default async function AdminPage({
                     {application.status === "pending" ? (
                       <div className="mt-4 flex flex-wrap gap-2">
                         <form action="/api/admin/teacher-applications" method="post">
+                          <CsrfField />
                           <input type="hidden" name="email" value={application.email} />
                           <input type="hidden" name="action" value="approve" />
                           <button className="rounded-full bg-emerald-900 px-4 py-2 text-xs font-bold text-white">
@@ -282,6 +290,7 @@ export default async function AdminPage({
                           </button>
                         </form>
                         <form action="/api/admin/teacher-applications" method="post">
+                          <CsrfField />
                           <input type="hidden" name="email" value={application.email} />
                           <input type="hidden" name="action" value="reject" />
                           <button className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-bold text-red-700">
@@ -357,6 +366,7 @@ export default async function AdminPage({
                     <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto]">
                       {student.invitation_status === "used" ? <div /> : (
                         <form action="/api/admin/invitations" method="post">
+                          <CsrfField />
                           <input type="hidden" name="userId" value={student.id} />
                           <button className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-amber-500 px-4 py-2 text-xs font-bold text-emerald-950 lg:w-auto">
                             <Mail className="h-4 w-4" />
@@ -414,6 +424,7 @@ export default async function AdminPage({
             <div className="grid gap-6 xl:grid-cols-3">
           <SectionCard title="Add / Update Course">
             <form action="/api/admin/courses" method="post" className="space-y-4">
+              <CsrfField />
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">Course title</span>
                 <input
@@ -450,6 +461,7 @@ export default async function AdminPage({
 
           <SectionCard title="Assign Student">
             <form id="assign-student" action="/api/admin/assignments" method="post" className="space-y-4">
+              <CsrfField />
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">Student</span>
                 <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="studentId" required>
@@ -491,6 +503,7 @@ export default async function AdminPage({
 
           <SectionCard title="Schedule Class">
             <form action="/api/admin/classes" method="post" className="space-y-4">
+              <CsrfField />
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">Course</span>
                 <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="courseId" required>
@@ -559,6 +572,7 @@ export default async function AdminPage({
             <div className="grid gap-6 xl:grid-cols-3">
           <SectionCard title="Mark Attendance">
             <form action="/api/admin/attendance" method="post" className="space-y-4">
+              <CsrfField />
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">Class</span>
                 <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="classSessionId" required>
@@ -600,6 +614,7 @@ export default async function AdminPage({
 
           <SectionCard title="Assign Homework">
             <form action="/api/admin/homework" method="post" className="space-y-4">
+              <CsrfField />
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">Related class</span>
                 <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="classSessionId">
@@ -655,6 +670,7 @@ export default async function AdminPage({
 
           <SectionCard title="Lesson Progress">
             <form action="/api/admin/progress" method="post" className="space-y-4">
+              <CsrfField />
               <label className="block">
                 <span className="text-sm font-bold text-slate-700">Student</span>
                 <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="studentId" required>
@@ -790,6 +806,7 @@ export default async function AdminPage({
                   ) : null}
                   {item.status === "completed" ? (
                     <form action="/api/admin/homework-review" method="post" className="mt-4 space-y-3">
+                      <CsrfField />
                       <input type="hidden" name="homeworkId" value={item.id} />
                       <textarea
                         className="min-h-20 w-full rounded-2xl border border-slate-200 p-3 text-sm outline-none focus:ring-4 focus:ring-emerald-900/10"
@@ -844,6 +861,7 @@ export default async function AdminPage({
               </div>
             </div>
             <form action="/api/admin/password-reset" method="post" className="grid gap-4 lg:grid-cols-4">
+              <CsrfField />
               <label className="block lg:col-span-2">
                 <span className="text-sm font-bold text-slate-700">User</span>
                 <select className="mt-2 h-11 w-full rounded-2xl border border-slate-200 px-4" name="userId" required>

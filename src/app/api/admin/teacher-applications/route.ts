@@ -1,67 +1,93 @@
 import { NextRequest, NextResponse } from "next/server";
-import { hashPassword, requireRole } from "@/lib/auth";
+import { hashPassword, requireApiRole } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { sendPasswordSetupEmail } from "@/lib/email";
 import { createPasswordSetupInvite } from "@/lib/invitations";
+import { logAudit } from "@/lib/utils/audit";
+import { requireCsrfToken } from "@/lib/utils/csrf";
+import { handleError } from "@/lib/utils/error-handler";
+import { parseRequest, teacherApplicationActionSchema } from "@/lib/utils/schemas";
 
 export async function POST(request: NextRequest) {
-  const admin = await requireRole("admin");
+  try {
+    const admin = await requireApiRole("admin");
 
-  const formData = await request.formData();
-  const email = String(formData.get("email") ?? "").trim().toLowerCase();
-  const action = String(formData.get("action") ?? "");
+    const formData = await request.formData();
+    await requireCsrfToken(formData);
+    const parsed = await teacherApplicationActionSchema.safeParseAsync({
+      email: formData.get("email"),
+      action: formData.get("action"),
+    });
 
-  if (!email || !["approve", "reject"].includes(action)) {
-    return NextResponse.redirect(new URL("/admin?error=application", request.url));
-  }
+    if (!parsed.success) {
+      return NextResponse.redirect(new URL("/admin?error=application", request.url));
+    }
 
-  const db = await getDb();
-  const application = await db
-    .prepare("SELECT name, email FROM teacher_applications WHERE lower(email) = ? LIMIT 1")
-    .bind(email)
-    .first<{ name: string; email: string }>();
+    const { email, action } = await parseRequest(parsed.data, teacherApplicationActionSchema);
 
-  if (!application) {
-    return NextResponse.redirect(new URL("/admin?error=missing-application", request.url));
-  }
+    const db = await getDb();
+    const application = await db
+      .prepare("SELECT name, email FROM teacher_applications WHERE lower(email) = ? AND deleted_at IS NULL LIMIT 1")
+      .bind(email)
+      .first<{ name: string; email: string }>();
 
-  if (action === "reject") {
-    await db.prepare("UPDATE teacher_applications SET status = 'rejected' WHERE lower(email) = ?").bind(email).run();
-    return NextResponse.redirect(new URL("/admin?status=rejected", request.url));
-  }
+    if (!application) {
+      return NextResponse.redirect(new URL("/admin?error=missing-application", request.url));
+    }
 
-  const existingUser = await db
-    .prepare("SELECT id FROM users WHERE lower(email) = ? LIMIT 1")
-    .bind(email)
-    .first<{ id: string }>();
-  let teacherId = existingUser?.id;
+    if (action === "reject") {
+      await db
+        .prepare(
+          "UPDATE teacher_applications SET status = 'rejected', reviewed_by = ?, updated_at = ? WHERE lower(email) = ? AND deleted_at IS NULL",
+        )
+        .bind(admin.id, new Date().toISOString(), email)
+        .run();
+      await logAudit(admin.id, "update", "teacher_applications", email, { status: "rejected" });
+      return NextResponse.redirect(new URL("/admin?status=rejected", request.url));
+    }
 
-  if (!teacherId) {
-    teacherId = crypto.randomUUID();
+    const existingUser = await db
+      .prepare("SELECT id FROM users WHERE lower(email) = ? AND deleted_at IS NULL LIMIT 1")
+      .bind(email)
+      .first<{ id: string }>();
+    let teacherId = existingUser?.id;
+
+    if (!teacherId) {
+      teacherId = crypto.randomUUID();
+      await db
+        .prepare(
+          `INSERT INTO users (id, name, email, password_hash, role, status, locale)
+           VALUES (?, ?, ?, ?, 'teacher', 'active', 'en')`,
+        )
+        .bind(teacherId, application.name, application.email, await hashPassword(crypto.randomUUID()))
+        .run();
+    }
+
+    const invite = await createPasswordSetupInvite(teacherId, admin.id);
+    await logAudit(admin.id, "create", "invitation_tokens", invite.id, { userId: teacherId, role: "teacher" });
+    const redirectUrl = new URL("/admin", request.url);
+    const setupUrl = new URL(`/invite?token=${invite.token}`, request.url).toString();
+    const emailResult = await sendPasswordSetupEmail({
+      to: application.email,
+      name: application.name,
+      role: "teacher",
+      setupUrl,
+    });
+
+    redirectUrl.searchParams.set("status", "approved");
+    redirectUrl.searchParams.set("invite", invite.token);
+    redirectUrl.searchParams.set("email", application.email);
+    redirectUrl.searchParams.set("emailStatus", emailResult.sent ? "sent" : emailResult.reason);
+
     await db
       .prepare(
-        `INSERT INTO users (id, name, email, password_hash, role, status, locale)
-         VALUES (?, ?, ?, ?, 'teacher', 'active', 'en')`,
+        "UPDATE teacher_applications SET status = 'approved', reviewed_by = ?, updated_at = ? WHERE lower(email) = ? AND deleted_at IS NULL",
       )
-      .bind(teacherId, application.name, application.email, await hashPassword(crypto.randomUUID()))
+      .bind(admin.id, new Date().toISOString(), email)
       .run();
+    await logAudit(admin.id, "update", "teacher_applications", email, { status: "approved" });
+    return NextResponse.redirect(redirectUrl);
+  } catch (error) {
+    return handleError(error);
   }
-
-  const invite = await createPasswordSetupInvite(teacherId, admin.id);
-  const redirectUrl = new URL("/admin", request.url);
-  const setupUrl = new URL(`/invite?token=${invite.token}`, request.url).toString();
-  const emailResult = await sendPasswordSetupEmail({
-    to: application.email,
-    name: application.name,
-    role: "teacher",
-    setupUrl,
-  });
-
-  redirectUrl.searchParams.set("status", "approved");
-  redirectUrl.searchParams.set("invite", invite.token);
-  redirectUrl.searchParams.set("email", application.email);
-  redirectUrl.searchParams.set("emailStatus", emailResult.sent ? "sent" : emailResult.reason);
-
-  await db.prepare("UPDATE teacher_applications SET status = 'approved' WHERE lower(email) = ?").bind(email).run();
-  return NextResponse.redirect(redirectUrl);
 }
