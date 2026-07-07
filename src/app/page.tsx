@@ -53,18 +53,30 @@ export default function Home() {
       title: "For children",
       copy: "Gentle pacing, parent visibility, and short learning goals that make Quran study feel consistent and safe.",
       icon: ShieldCheck,
+      href: "/register",
+      action: "Register a child",
     },
     {
       title: "For adults",
       copy: "Flexible private sessions for recitation, Tajweed correction, Arabic basics, translation, and revision.",
       icon: Clock3,
+      href: "/register",
+      action: "Start adult learning",
     },
     {
       title: "For teachers",
       copy: "A focused workspace for assigned students, classes, attendance, homework review, and lesson progress.",
       icon: GraduationCap,
+      href: "/apply",
+      action: "Apply to teach",
     },
   ];
+  const roleLinks: Record<string, { href: string; action: string }> = {
+    Admin: { href: "/admin", action: "Open admin portal" },
+    Teacher: { href: "/apply", action: "Apply as teacher" },
+    Student: { href: "/register", action: "Register student" },
+    Parent: { href: "/register", action: "Create family account" },
+  };
 
   return (
     <main className="academy-surface min-h-screen">
@@ -210,11 +222,18 @@ export default function Home() {
       <section id="roles" className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-4 md:grid-cols-4">
           {roleCards.map((card) => (
-            <div key={card.role} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <Link
+              key={card.role}
+              href={roleLinks[card.role]?.href ?? "/login"}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-900/30 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-emerald-900/10"
+            >
               <p className="text-sm font-bold uppercase tracking-[0.18em] text-amber-700">{card.role}</p>
               <h3 className="mt-3 text-xl font-black text-emerald-950">{card.title}</h3>
               <p className="mt-3 text-sm leading-6 text-slate-600">{card.copy}</p>
-            </div>
+              <p className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-emerald-900">
+                {roleLinks[card.role]?.action ?? "Open portal"} <ArrowRight className="h-4 w-4" />
+              </p>
+            </Link>
           ))}
         </div>
       </section>
@@ -222,11 +241,18 @@ export default function Home() {
       <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <div className="grid gap-4 lg:grid-cols-3">
           {trustCards.map((card) => (
-            <div key={card.title} className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <Link
+              key={card.title}
+              href={card.href}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-0.5 hover:border-emerald-900/30 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-emerald-900/10"
+            >
               <card.icon className="h-8 w-8 text-amber-700" />
               <h3 className="mt-5 text-xl font-black text-emerald-950">{card.title}</h3>
               <p className="mt-3 text-sm leading-6 text-slate-600">{card.copy}</p>
-            </div>
+              <p className="mt-5 inline-flex items-center gap-2 text-sm font-bold text-emerald-900">
+                {card.action} <ArrowRight className="h-4 w-4" />
+              </p>
+            </Link>
           ))}
         </div>
       </section>
