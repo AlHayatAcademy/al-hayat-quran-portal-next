@@ -8,9 +8,10 @@ export const dynamic = "force-dynamic";
 export default async function RegisterPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; error?: string }>;
+  searchParams: Promise<{ status?: string; error?: string; course?: string }>;
 }) {
   const params = await searchParams;
+  const selectedCourse = params.course && courses.includes(params.course) ? params.course : courses[0];
 
   return (
     <main className="academy-surface min-h-screen">
@@ -69,10 +70,13 @@ export default async function RegisterPage({
             <select
               className="mt-2 h-12 w-full rounded-2xl border border-slate-200 px-4 outline-none focus:ring-4 focus:ring-emerald-900/10"
               name="courseTitle"
+              defaultValue={selectedCourse}
               required
             >
               {courses.map((course) => (
-                <option key={course}>{course}</option>
+                <option key={course} value={course}>
+                  {course}
+                </option>
               ))}
             </select>
           </label>
