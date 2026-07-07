@@ -93,6 +93,7 @@ export type OnboardingStudentRow = OnboardingUserRow & {
   course_title: string | null;
   learning_goal: string | null;
   scheduled_classes: number;
+  latest_class_status: string | null;
 };
 
 export type OnboardingApplicationRow = {
@@ -324,15 +325,32 @@ export async function getAdminData() {
         (SELECT COUNT(*) FROM attendance_records) AS attendance,
         (SELECT COUNT(*) FROM lesson_progress) AS progress,
         (SELECT COUNT(*) FROM support_tickets WHERE status = 'open') AS tickets,
-        (SELECT COUNT(*) FROM teacher_applications WHERE status = 'pending') AS applications`,
+        (
+          SELECT COUNT(*)
+          FROM teacher_applications
+          INNER JOIN (
+            SELECT lower(email) AS email_key, MAX(created_at) AS latest_created_at
+            FROM teacher_applications
+            GROUP BY lower(email)
+          ) AS latest_application ON latest_application.email_key = lower(teacher_applications.email)
+            AND latest_application.latest_created_at = teacher_applications.created_at
+          WHERE teacher_applications.status = 'pending'
+        ) AS applications`,
     )
     .first<Record<string, number>>();
 
   const applications = await db
     .prepare(
-      `SELECT name, email, specialty, experience_years, status, created_at
+      `SELECT teacher_applications.name, teacher_applications.email, teacher_applications.specialty,
+              teacher_applications.experience_years, teacher_applications.status, teacher_applications.created_at
        FROM teacher_applications
-       ORDER BY created_at DESC
+       INNER JOIN (
+        SELECT lower(email) AS email_key, MAX(created_at) AS latest_created_at
+        FROM teacher_applications
+        GROUP BY lower(email)
+       ) AS latest_application ON latest_application.email_key = lower(teacher_applications.email)
+        AND latest_application.latest_created_at = teacher_applications.created_at
+       ORDER BY teacher_applications.created_at DESC
        LIMIT 6`,
     )
     .all<{ name: string; email: string; specialty: string | null; experience_years: number | null; status: string }>();
@@ -511,6 +529,12 @@ export async function getAdminData() {
                 ELSE 'sent'
               END AS invitation_status
        FROM teacher_applications
+       INNER JOIN (
+        SELECT lower(email) AS email_key, MAX(created_at) AS latest_created_at
+        FROM teacher_applications
+        GROUP BY lower(email)
+       ) AS latest_application ON latest_application.email_key = lower(teacher_applications.email)
+        AND latest_application.latest_created_at = teacher_applications.created_at
        LEFT JOIN users ON lower(users.email) = lower(teacher_applications.email) AND users.role = 'teacher'
        LEFT JOIN invitation_tokens ON invitation_tokens.user_id = users.id
         AND invitation_tokens.purpose = 'password_setup'
@@ -609,7 +633,28 @@ export async function getAdminData() {
               invitation_tokens.expires_at AS invite_expires_at,
               invitation_tokens.used_at AS invite_used_at,
               (SELECT COUNT(*) FROM sessions WHERE sessions.user_id = users.id AND sessions.expires_at > ?) AS active_sessions,
-              (SELECT COUNT(*) FROM class_sessions WHERE class_sessions.student_id = users.id AND class_sessions.status = 'scheduled') AS scheduled_classes,
+              (
+                SELECT COUNT(*)
+                FROM class_sessions
+                WHERE class_sessions.student_id = users.id
+                  OR (
+                    class_sessions.student_id IS NULL
+                    AND class_sessions.teacher_id = student_profiles.teacher_id
+                    AND class_sessions.course_id = student_profiles.course_id
+                  )
+              ) AS scheduled_classes,
+              (
+                SELECT class_sessions.status
+                FROM class_sessions
+                WHERE class_sessions.student_id = users.id
+                  OR (
+                    class_sessions.student_id IS NULL
+                    AND class_sessions.teacher_id = student_profiles.teacher_id
+                    AND class_sessions.course_id = student_profiles.course_id
+                  )
+                ORDER BY class_sessions.starts_at DESC
+                LIMIT 1
+              ) AS latest_class_status,
               CASE
                 WHEN invitation_tokens.id IS NULL THEN 'none'
                 WHEN invitation_tokens.used_at IS NOT NULL THEN 'used'
@@ -636,7 +681,11 @@ export async function getAdminData() {
           WHEN NOT EXISTS (
             SELECT 1 FROM class_sessions
             WHERE class_sessions.student_id = users.id
-              AND class_sessions.status = 'scheduled'
+              OR (
+                class_sessions.student_id IS NULL
+                AND class_sessions.teacher_id = student_profiles.teacher_id
+                AND class_sessions.course_id = student_profiles.course_id
+              )
           ) THEN 1
           WHEN invitation_tokens.id IS NULL THEN 2
           WHEN invitation_tokens.used_at IS NULL AND invitation_tokens.expires_at <= ? THEN 3
